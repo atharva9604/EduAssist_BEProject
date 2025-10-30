@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { Upload } from 'lucide-react';
 import { generateQuestionPaper, QuestionPaperResponse } from '@/services/questionPaperService';
 
 export default function QuestionPaperGenerator() {
@@ -11,21 +12,47 @@ export default function QuestionPaperGenerator() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<QuestionPaperResponse | null>(null);
   const [error, setError] = useState('');
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const uploadPdfAndExtract = async (file: File): Promise<string> => {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/pdf/extract", { method: "POST", body: fd });
+    if (!res.ok) throw new Error("PDF extraction failed");
+    const data = await res.json();
+    return data.text || "";
+  };
 
   const handleGenerate = async () => {
-    if (!content.trim()) {
-      setError('Please enter some content');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setResult(null);
-
     try {
+      setLoading(true);
+      setError('');
+      setResult(null);
+  
+      let sourceText = content;
+  
+      // If textarea empty but a PDF is selected → extract text from PDF
+      if (!sourceText.trim() && pdfFile) {
+        sourceText = await uploadPdfAndExtract(pdfFile);
+        if (!sourceText.trim()) {
+          setError('Extracted PDF content is empty.');
+          setLoading(false);
+          return;
+        }
+        // optional: show a preview in textarea
+        setContent(sourceText.slice(0, 5000));
+      }
+  
+      if (!sourceText.trim()) {
+        setError('Please enter content or upload a PDF.');
+        setLoading(false);
+        return;
+      }
+  
       const response = await generateQuestionPaper({
-        content,
-        document_type: 'text',
+        content: sourceText,
+        document_type: pdfFile ? 'pdf' : 'text',
         num_mcq: numMcq,
         num_short: numShort,
         num_long: numLong,
@@ -34,7 +61,7 @@ export default function QuestionPaperGenerator() {
         marks_long: 5,
         difficulty: 'medium'
       });
-
+  
       setResult(response);
     } catch (err) {
       setError('Failed to generate question paper. Please try again.');
@@ -42,6 +69,58 @@ export default function QuestionPaperGenerator() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const buildText = () => {
+    if (!result) return "";
+    const lines: string[] = [];
+    lines.push("Generated Question Paper");
+    lines.push(`Total Marks: ${result.total_marks}`);
+    lines.push("");
+  
+    if (result.questions.mcq_questions.length) {
+      lines.push("MCQs:");
+      result.questions.mcq_questions.forEach((q, i) => {
+        lines.push(`${i + 1}. ${q.question}`);
+        (q.options || []).forEach((opt, j) => {
+          lines.push(`   ${String.fromCharCode(65 + j)}. ${opt}`);
+        });
+        lines.push(`   Answer: ${q.correct_answer}`);
+        lines.push("");
+      });
+    }
+  
+    if (result.questions.short_answer_questions.length) {
+      lines.push("Short Answer Questions:");
+      result.questions.short_answer_questions.forEach((q, i) => {
+        lines.push(`${i + 1}. ${q.question}`);
+        lines.push(`   Marks: ${q.marks}`);
+        lines.push("");
+      });
+    }
+  
+    if (result.questions.long_answer_questions.length) {
+      lines.push("Long Answer Questions:");
+      result.questions.long_answer_questions.forEach((q, i) => {
+        lines.push(`${i + 1}. ${q.question}`);
+        lines.push(`   Marks: ${q.marks}`);
+        lines.push("");
+      });
+    }
+  
+    return lines.join("\n");
+  };
+
+  const downloadTXT = () => {
+    const text = buildText();
+    if (!text) return;
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "question-paper.txt";
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -52,7 +131,41 @@ export default function QuestionPaperGenerator() {
 
       {/* Input Form */}
       <div className="bg-gray-800 rounded-lg p-6 mb-6">
-        <label className="block mb-2 font-semibold">Content</label>
+        <div className="flex items-center justify-between mb-2">
+          <label className="font-semibold">Content</label>
+          <div className="flex items-center gap-2">
+            {pdfFile ? (
+              <span className="text-xs text-gray-400 truncate max-w-[200px]" title={pdfFile.name}>
+                {pdfFile.name}
+              </span>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 border border-gray-600"
+              title="Upload PDF"
+            >
+              <Upload className="w-4 h-4" />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0] || null;
+                setPdfFile(f);
+                setError('');
+              }}
+            />
+            <button
+  onClick={downloadTXT}
+  className="mt-4 px-4 py-2 rounded-lg bg-[#DAA520] text-black font-semibold hover:bg-[#B8860B]"
+>
+  Download TXT
+</button>
+          </div>
+        </div>
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
@@ -100,6 +213,11 @@ export default function QuestionPaperGenerator() {
         >
           {loading ? 'Generating...' : 'Generate Question Paper'}
         </button>
+        {pdfFile && (
+          <p className="mt-2 text-xs text-gray-400">
+            Note: PDF selected. Hook backend to extract text from PDF for generation.
+          </p>
+        )}
       </div>
 
       {/* Error Message */}

@@ -22,9 +22,9 @@ const GetStartedButton = () => {
 
   const handleGetStarted = () => {
     if (user) {
-      router.push("/mainpage"); // Only redirect on button click
+      router.push("/dashboard"); 
     } else {
-      setShowLoginModal(true); // Show login modal
+      setShowLoginModal(true); 
     }
   };
 

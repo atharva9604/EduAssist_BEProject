@@ -66,3 +66,25 @@ wheels/
 
 # backend
 backend/migrations/
+
+# credentials / keys
+*.key
+*.crt
+backend/**/service-account*.json
+backend/**/credentials*.json
+backend/.env
+
+# local data/uploads
+uploads/
+public/uploads/
+tmp/
+.cache/
+
+# OS/editor
+Thumbs.db
+.idea/
+.vscode/
+
+# optional: ignore sample/test PDFs
+test/**/*.pdf
+*.pdf

@@ -40,7 +40,7 @@ const MainPage = () => {
   const handleTabChange =(tab:string)=>{
     setActiveTab(tab);
     if(tab==='home'){
-      router.push('/');
+      router.push('/dashboard');
     }else if(tab==='profile'){
       router.push('/profile');
     }else if(tab==='settings'){

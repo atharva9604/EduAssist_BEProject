@@ -2,6 +2,16 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, List, Optional
+import os
+from dotenv import load_dotenv
+load_dotenv()  # reads backend/.env or project .env if present
+
+# Prefer Gemini API key (google.generativeai)
+import google.generativeai as genai
+API_KEY = os.getenv("GEMINI_API_KEY")
+if not API_KEY:
+    raise RuntimeError("GEMINI_API_KEY not set")
+genai.configure(api_key=API_KEY)
 
 # Import agents
 import sys
