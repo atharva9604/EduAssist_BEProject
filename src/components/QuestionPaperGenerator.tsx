@@ -50,12 +50,14 @@ export default function QuestionPaperGenerator() {
         return;
       }
   
+      // Normalize numeric inputs; allow empty/invalid -> 0
+      const safeInt = (v: number) => (Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0);
       const response = await generateQuestionPaper({
         content: sourceText,
         document_type: pdfFile ? 'pdf' : 'text',
-        num_mcq: numMcq,
-        num_short: numShort,
-        num_long: numLong,
+        num_mcq: safeInt(numMcq),
+        num_short: safeInt(numShort),
+        num_long: safeInt(numLong),
         marks_mcq: 1,
         marks_short: 3,
         marks_long: 5,
@@ -179,7 +181,10 @@ export default function QuestionPaperGenerator() {
             <input
               type="number"
               value={numMcq}
-              onChange={(e) => setNumMcq(parseInt(e.target.value))}
+              onChange={(e) => {
+                const v = e.target.value;
+                setNumMcq(v === '' ? 0 : (parseInt(v, 10) || 0));
+              }}
               className="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600"
               min="0"
             />
@@ -189,7 +194,10 @@ export default function QuestionPaperGenerator() {
             <input
               type="number"
               value={numShort}
-              onChange={(e) => setNumShort(parseInt(e.target.value))}
+              onChange={(e) => {
+                const v = e.target.value;
+                setNumShort(v === '' ? 0 : (parseInt(v, 10) || 0));
+              }}
               className="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600"
               min="0"
             />
@@ -199,7 +207,10 @@ export default function QuestionPaperGenerator() {
             <input
               type="number"
               value={numLong}
-              onChange={(e) => setNumLong(parseInt(e.target.value))}
+              onChange={(e) => {
+                const v = e.target.value;
+                setNumLong(v === '' ? 0 : (parseInt(v, 10) || 0));
+              }}
               className="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600"
               min="0"
             />
