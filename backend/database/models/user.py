@@ -16,3 +16,4 @@ class User(BaseModel):
     # Relationships
     documents = relationship("Document", back_populates="user")
     question_papers = relationship("QuestionPaper", back_populates="user")
+    presentations = relationship("Presentation", back_populates="user")

@@ -13,6 +13,10 @@ const TextArea = () => {
     router.push('/question-paper');
   };
 
+  const handlePPT = () => {
+    router.push('/ppt-generator');
+  };
+
   return (
     <div className='relative'>
         <textarea 
@@ -22,7 +26,7 @@ const TextArea = () => {
           placeholder='Type what you want to do...'
         />
         <div className='absolute bottom-5 left-2 flex gap-2'>
-          <button className='flex justify-center items-center gap-1 text-xs cursor-pointer bg-[#DAA520] text-black px-2 py-1 rounded hover:bg-[#B8860B] transition'><PiFilePptBold /> PPT</button>
+          <button onClick={handlePPT} className='flex justify-center items-center gap-1 text-xs cursor-pointer bg-[#DAA520] text-black px-2 py-1 rounded hover:bg-[#B8860B] transition'><PiFilePptBold /> PPT</button>
           <button 
             onClick={handleQuestionPaper}
             className='flex justify-center items-center gap-1 text-xs cursor-pointer bg-[#DAA520] text-black px-2 py-1 rounded hover:bg-[#B8860B] transition'>

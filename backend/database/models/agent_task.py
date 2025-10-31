@@ -8,6 +8,7 @@ class AgentType(str, enum.Enum):
     CONTENT_ANALYZER = "content_analyzer"
     QUESTION_GENERATOR = "question_generator"
     QUALITY_VALIDATOR = "quality_validator"
+    PPT_GENERATOR = "ppt_generator"
 
 class TaskStatus(str, enum.Enum):
     PENDING = "pending"

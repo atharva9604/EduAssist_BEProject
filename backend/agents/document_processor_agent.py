@@ -6,6 +6,9 @@ import PyPDF2
 import python_pptx
 from docx import Document
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class DocumentProcessorTool(BaseTool):
     name: str = "Document Processor Tool"
@@ -53,6 +56,8 @@ class DocumentProcessorTool(BaseTool):
         return text
 
 # Create the Document Processor Agent
+from crewai import LLM 
+
 document_processor_agent = Agent(
     role="Document Processor",
     goal="Extract and clean text content from uploaded documents (PDFs, PPTs, DOCX files)",
@@ -60,6 +65,7 @@ document_processor_agent = Agent(
     extracting text from various document formats. You ensure that the extracted 
     content is clean, readable, and properly formatted for further processing.""",
     tools=[DocumentProcessorTool()],
+    llm=LLM(model="gemini-pro", api_key=os.getenv("GEMINI_API_KEY")),
     verbose=True,
     allow_delegation=False
 )
