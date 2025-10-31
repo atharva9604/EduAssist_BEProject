@@ -12,7 +12,9 @@ import Timetable from "@/components/time-table";
 import Subjects from "@/components/subjects";
 import TodoList from "@/components/todo-list";
 import AdvancedCalendar, { RbcEvent } from "@/components/advacedcalendar";
+import OverviewCalendar from "@/components/overviewcalender";
 import Sidebar from "@/components/sidebar";
+import { uploadTimetable, uploadTimetableFull } from "@/services/calenderService";
 
 export type CalendarEvent = { id: string; date: string; title: string };
 export type TimetableEntry = {
@@ -29,6 +31,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "edit">("overview");
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarActiveTab, setSidebarActiveTab] = useState("home");
@@ -36,9 +39,15 @@ export default function DashboardPage() {
   const [teacherName, setTeacherName] = useState("");
   const [avatar, setAvatar] = useState("");
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [eventsFull, setEventsFull] = useState<any[]>([]);
   const [entries, setEntries] = useState<TimetableEntry[]>([]);
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
   const [todos, setTodos] = useState<TodoItem[]>([]);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState("");
+  const [todayEvents, setTodayEvents] = useState<any[]>([]);
+  const [todayTasks, setTodayTasks] = useState<any[]>([]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -60,16 +69,28 @@ export default function DashboardPage() {
   }, [events, todos]);
 
   const rbcEvents = useMemo<RbcEvent[]>(
-    () =>
-      events.map((e) => {
+    () => {
+      const backendEvents: RbcEvent[] = (eventsFull || []).map((ev: any) => ({
+        id: ev.id,
+        title: ev.title,
+        start: new Date(ev.start),
+        end: new Date(ev.end),
+      }));
+      const localEvents: RbcEvent[] = events.map((e) => {
         const d = new Date(e.date);
         const start = new Date(d);
         start.setHours(9, 0, 0, 0);
         const end = new Date(d);
         end.setHours(10, 0, 0, 0);
         return { id: e.id, title: e.title, start, end };
-      }),
-    [events]
+      });
+      const byId = new Map<string, RbcEvent>();
+      [...backendEvents, ...localEvents].forEach((ev) => {
+        if (!byId.has(ev.id)) byId.set(ev.id, ev);
+      });
+      return Array.from(byId.values());
+    },
+    [eventsFull, events]
   );
 
   const getUserName = () => {
@@ -85,6 +106,78 @@ export default function DashboardPage() {
       console.error("Logout failed:", err);
     }
   };
+
+  const refreshEventsFromBackend = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/events`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setEventsFull(data.events || []);
+      const mapped: CalendarEvent[] = (data.events || []).map((ev: any) => ({
+        id: ev.id,
+        title: ev.title,
+        date: (ev.start || "").slice(0, 10),
+      }));
+      setEvents(mapped);
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  const handleUploadCsv = async () => {
+    if (!csvFile) {
+      setUploadMsg("Please choose a CSV file.");
+      return;
+    }
+    setUploading(true);
+    setUploadMsg("");
+    try {
+      const res = await uploadTimetable(csvFile);
+      setUploadMsg(`Imported ${res.inserted} events. Total: ${res.total_events}.`);
+      await refreshEventsFromBackend();
+      await fetchTodayOverview();
+    } catch (e: any) {
+      setUploadMsg(e?.message || "Upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleUploadCsvFull = async () => {
+    if (!csvFile) {
+      setUploadMsg("Please choose a CSV file.");
+      return;
+    }
+    setUploading(true);
+    setUploadMsg("");
+    try {
+      const res = await uploadTimetableFull(csvFile);
+      setUploadMsg(`Full sync: imported ${res.inserted} events. Total: ${res.total_events}.`);
+      await refreshEventsFromBackend();
+      await fetchTodayOverview();
+    } catch (e: any) {
+      setUploadMsg(e?.message || "Upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const fetchTodayOverview = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/today-overview`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setTodayEvents(data.events || []);
+      setTodayTasks(data.tasks || []);
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    fetchTodayOverview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, todos]);
 
   const handleSidebarTabChange = (tab: string) => {
     setSidebarActiveTab(tab);
@@ -198,15 +291,43 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="rounded-2xl bg-white/5 border border-white/10 p-5">
+                  <h2 className="text-sm uppercase tracking-wider text-gray-400 mb-3">Upload Timetable (CSV)</h2>
+                  <div className="flex gap-3 items-center">
+                    <input
+                      type="file"
+                      accept=".csv,text/csv"
+                      onChange={(e) => setCsvFile(e.target.files?.[0] || null)}
+                      className="flex-1 p-2 rounded-lg bg-gray-700 text-white border border-gray-600"
+                    />
+                    <button
+                      onClick={handleUploadCsv}
+                      disabled={uploading || !csvFile}
+                      className="px-4 py-2 bg-[#DAA520] text-black rounded-lg font-semibold hover:bg-[#B8860B] transition disabled:opacity-50"
+                    >
+                      {uploading ? "Uploading…" : "Upload"}
+                    </button>
+                    <button
+                      onClick={handleUploadCsvFull}
+                      disabled={uploading || !csvFile}
+                      className="px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 hover:bg-gray-600 transition disabled:opacity-50"
+                    >
+                      {uploading ? "Syncing…" : "Sync Full Week"}
+                    </button>
+                  </div>
+                  {uploadMsg && <p className="text-sm mt-3 text-gray-300">{uploadMsg}</p>}
+                  <p className="text-xs text-gray-400 mt-2">CSV columns: title, start, end[, location, description, allDay]</p>
+                </div>
+
+                <div className="rounded-2xl bg-white/5 border border-white/10 p-5">
                   <h2 className="text-sm uppercase tracking-wider text-gray-400 mb-3">Calendar </h2>
                   <AdvancedCalendar
-                    events={rbcEvents}
-                    onCreateEvent={(ev) =>
-                      setEvents((prev) => [
-                        ...prev,
-                        { id: ev.id, title: ev.title, date: ev.start.toISOString().slice(0, 10) },
-                      ])
-                    }
+                      events={rbcEvents}
+                      onCreateEvent={(ev) =>
+                        setEvents((prev) => [
+                          ...prev,
+                          { id: ev.id, title: ev.title, date: ev.start.toISOString().slice(0, 10) },
+                        ])
+                      }
                   />
                 </div>
 
@@ -283,19 +404,22 @@ export default function DashboardPage() {
                     <div className="bg-black/40 border border-white/10 rounded-xl p-4">
                       <div className="flex items-center gap-2 text-gray-300 mb-2">
                         <Clock className="h-4 w-4" />
-                        <span className="text-sm">Upcoming</span>
+                        <span className="text-sm">Today’s Schedule</span>
                       </div>
-                      <div className="space-y-2">
-                        {stats.upcoming.length === 0 ? (
-                          <p className="text-xs text-gray-500">No upcoming events.</p>
+                      <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                        {todayEvents.length === 0 ? (
+                          <p className="text-xs text-gray-500">No events today.</p>
                         ) : (
-                          stats.upcoming.map((e) => (
+                          todayEvents.map((e: any) => (
                             <div
                               key={e.id}
                               className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg px-3 py-2"
                             >
                               <span className="text-sm">{e.title}</span>
-                              <span className="text-xs text-gray-400">{e.date}</span>
+                              <span className="text-xs text-gray-400">
+                                {new Date(e.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                -{new Date(e.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
                             </div>
                           ))
                         )}
@@ -356,13 +480,7 @@ export default function DashboardPage() {
 
               <div className="rounded-3xl bg-gradient-to-br from-white/10 via-white/5 to-transparent border border-white/10 p-6">
                 <h3 className="text-sm uppercase tracking-wider text-gray-400 mb-3">Calendar</h3>
-                <AdvancedCalendar
-                  events={rbcEvents}
-                  onCreateEvent={function (ev: RbcEvent): void {
-                    throw new Error("Function not implemented.");
-                  }}
-                />
-                <h3 className="text-sm uppercase tracking-wider text-gray-400 mb-3">Calendar</h3>
+                <OverviewCalendar events={rbcEvents} />
               </div>
 
               <div className="rounded-3xl bg-gradient-to-br from-white/10 via-white/5 to-transparent border border-white/10 p-6">

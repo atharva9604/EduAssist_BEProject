@@ -25,3 +25,47 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Calendar overrides: make off-range and today cells match dark background */
+.rbc-off-range-bg {
+  background: transparent !important;
+}
+.rbc-today {
+  background: transparent !important;
+}
+
+/* Popup styling for react-big-calendar (show-more overlay) */
+.rbc-overlay {
+  background: #DAA520 !important;
+  color: #000 !important;
+  border: 1px solid rgba(218,165,32,0.6) !important;
+}
+.rbc-overlay .rbc-overlay-header {
+  background: rgba(0,0,0,0.05) !important;
+  color: #000 !important;
+}
+.rbc-overlay .rbc-event {
+  background: transparent !important;
+  color: #000 !important;
+}
+
+/* Make month cell events appear as neat single lines */
+.rbc-month-view .rbc-event {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 6px 0 4px !important;
+  height: 16px !important;
+  display: flex;
+  align-items: center;
+}
+.rbc-event-content {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rbc-show-more {
+  color: #DAA520 !important;
+  background: transparent !important;
+  border: none !important;
+  font-weight: 700;
+}

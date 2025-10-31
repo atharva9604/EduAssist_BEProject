@@ -103,14 +103,16 @@ export default function AdvancedCalendar({ events, onCreateEvent }: Props) {
           selectable
           onSelectSlot={handleSelectSlot}
           popup
+          messages={{ showMore: (total: number) => `+${total}` }}
           style={{ height: 360 }}
           eventPropGetter={() => ({
             style: {
-              backgroundColor: "rgba(218,165,32,0.25)",
-              border: "1px solid rgba(218,165,32,0.35)",
-              color: "#fff",
-              borderRadius: "8px",
-              padding: "2px 6px",
+              backgroundColor: "transparent",
+              borderLeft: "3px solid #DAA520",
+              color: "#DAA520",
+              padding: "0 6px 0 4px",
+              fontSize: 12,
+              lineHeight: 1.1,
             },
           })}
           dayPropGetter={() => ({
