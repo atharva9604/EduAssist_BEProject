@@ -4,26 +4,20 @@ import React, { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { motion } from "framer-motion";
-import { UserRound, Calendar, ListTodo, BookOpen, Clock, Menu } from "lucide-react";
+import { X,UserRound, Calendar, ListTodo, BookOpen, Clock, Menu } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-import Timetable from "@/components/time-table";
 import Subjects from "@/components/subjects";
 import TodoList from "@/components/todo-list";
 import AdvancedCalendar, { RbcEvent } from "@/components/advacedcalendar";
 import OverviewCalendar from "@/components/overviewcalender";
 import Sidebar from "@/components/sidebar";
 import { uploadTimetable, uploadTimetableFull } from "@/services/calenderService";
+import { div } from "framer-motion/client";
+
 
 export type CalendarEvent = { id: string; date: string; title: string };
-export type TimetableEntry = {
-  id: string;
-  day: string;
-  time: string;
-  subject: string;
-  classroom?: string;
-};
 export type SubjectItem = { id: string; name: string; code?: string };
 export type TodoItem = { id: string; text: string; done: boolean };
 
@@ -40,7 +34,11 @@ export default function DashboardPage() {
   const [avatar, setAvatar] = useState("");
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [eventsFull, setEventsFull] = useState<any[]>([]);
-  const [entries, setEntries] = useState<TimetableEntry[]>([]);
+  const [showSemesterModal, setShowSemesterModal] = useState(false);
+  const [semesterStartDate, setSemesterStartDate] = useState("");
+  const [semesterEndDate, setSemesterEndDate] = useState("");
+  const [syncingSemester, setSyncingSemester] = useState(false);
+  const [semesterSyncMsg, setSemesterSyncMsg] = useState("");
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -145,20 +143,34 @@ export default function DashboardPage() {
 
   const handleUploadCsvFull = async () => {
     if (!csvFile) {
-      setUploadMsg("Please choose a CSV file.");
+      setSemesterSyncMsg("Please choose a CSV file.");
       return;
     }
-    setUploading(true);
-    setUploadMsg("");
+    if(!semesterStartDate || !semesterEndDate){
+      setSemesterSyncMsg("Please select start and end date.");
+      return;
+    }
+    if(semesterStartDate>semesterEndDate){
+      setSemesterSyncMsg("Please select valid start date.");
+      return;
+    }
+    setSyncingSemester(true);
+    setSemesterSyncMsg("");
     try {
-      const res = await uploadTimetableFull(csvFile);
-      setUploadMsg(`Full sync: imported ${res.inserted} events. Total: ${res.total_events}.`);
+      const res = await uploadTimetableFull(csvFile,semesterStartDate,semesterEndDate);
+      setSemesterSyncMsg(`Semester sync complete! Imported ${res.inserted} events. Total: ${res.total_events}.`);
       await refreshEventsFromBackend();
       await fetchTodayOverview();
+      setTimeout(()=>{
+        setShowSemesterModal(false);
+        setSemesterSyncMsg("");
+        setSemesterStartDate("");
+        setSemesterEndDate("");
+      },2000);
     } catch (e: any) {
-      setUploadMsg(e?.message || "Upload failed.");
+      setSemesterSyncMsg(e?.message || "Semester sync failed.");
     } finally {
-      setUploading(false);
+      setSyncingSemester(false);
     }
   };
 
@@ -173,6 +185,37 @@ export default function DashboardPage() {
       // ignore
     }
   };
+
+  const loadSubjects = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/subjects`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setSubjects(data.subjects || []);
+    } catch (e) {
+      console.error("Failed to load subjects:", e);
+    }
+  };
+
+  const loadTodos = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/simple-todos`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setTodos(data.todos || []);
+    } catch (e) {
+      console.error("Failed to load todos:", e);
+    }
+  };
+
+  useEffect(() => {
+    // Load all data from database on page load/refresh
+    refreshEventsFromBackend();
+    fetchTodayOverview();
+    loadSubjects();
+    loadTodos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     fetchTodayOverview();
@@ -307,17 +350,90 @@ export default function DashboardPage() {
                       {uploading ? "Uploading…" : "Upload"}
                     </button>
                     <button
-                      onClick={handleUploadCsvFull}
+                      onClick={()=>setShowSemesterModal(true)}
                       disabled={uploading || !csvFile}
                       className="px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 hover:bg-gray-600 transition disabled:opacity-50"
                     >
-                      {uploading ? "Syncing…" : "Sync Full Week"}
+                      Sync for the Semester
                     </button>
                   </div>
                   {uploadMsg && <p className="text-sm mt-3 text-gray-300">{uploadMsg}</p>}
                   <p className="text-xs text-gray-400 mt-2">CSV columns: title, start, end[, location, description, allDay]</p>
                 </div>
 
+                {showSemesterModal && (
+                  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-gray-900 border border-white/20 rounded-2xl p-6 max-w-md w-full">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-xl font-semibold text-[#DAA520]">
+                          Submit
+                        </h3>
+                        <button onClick={()=>{
+                          setShowSemesterModal(false);
+                          setSemesterSyncMsg("");
+                          setSemesterStartDate("");
+                          setSemesterEndDate("");
+                        }}
+                        className="text-gray-400 hover:text-white transition"
+                        >
+                          <X className="h-6 w-6" />
+                        </button>
+                      </div>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-300 mb-2">
+                            Semester Start Date
+                          </label>
+                          <div className="relative">
+                          <input type="date" value={semesterStartDate} onChange={(e)=> setSemesterStartDate(e.target.value)} className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#DAA520]" required 
+                          onClick={(e)=> e.currentTarget.showPicker?.()}
+                          />
+                          <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
+    
+                          </div>
+                        </div>
+                        <div>
+    <label className="block text-sm font-medium text-gray-300 mb-2">
+      Semester End Date *
+    </label>
+    <div className="relative">
+      <input 
+        type="date" 
+        value={semesterEndDate} 
+        onChange={(e) => setSemesterEndDate(e.target.value)} 
+        className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#DAA520] cursor-pointer" 
+        required
+        onClick={(e) => e.currentTarget.showPicker?.()}  // Force calendar to open
+      />
+      <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
+    </div>
+  </div>
+                        {semesterSyncMsg && (
+                          <div className={`p-3 rounded-lg text-sm ${
+                            semesterSyncMsg.includes("complete") || semesterSyncMsg.includes("Imported") ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"
+                          }`}>
+                            {semesterSyncMsg}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex justify-end gap-2 pt-4">
+                        <button onClick={()=>{
+                          setShowSemesterModal(false);
+                          setSemesterSyncMsg("");
+                          setSemesterStartDate("");
+                          setSemesterEndDate("");
+                        }} className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-200 hover:bg-white/10 transition">Cancel</button>
+                        <button onClick={handleUploadCsvFull}
+                        disabled={syncingSemester || !semesterStartDate || !semesterEndDate}
+                        className="px-4 py-2 rounded-lg bg-[#DAA520] text-black font-semibold shadow-[0_0_25px_rgba(218,165,32,0.25)] hover:bg-[#B8860B] transition disabled:opacity-50"
+                        >
+                          {syncingSemester ? "Syncing…" : "Sync"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="rounded-2xl bg-white/5 border border-white/10 p-5">
                   <h2 className="text-sm uppercase tracking-wider text-gray-400 mb-3">Calendar </h2>
                   <AdvancedCalendar
@@ -331,32 +447,88 @@ export default function DashboardPage() {
                   />
                 </div>
 
-                <div className="rounded-2xl bg-white/5 border border-white/10 p-5">
-                  <Timetable
-                    entries={entries}
-                    onAdd={(entry) => setEntries((p) => [...p, entry])}
-                    onDelete={(id) => setEntries((p) => p.filter((e) => e.id !== id))}
-                  />
-                </div>
               </div>
 
               <div className="flex flex-col space-y-6 pr-1">
                 <div className=" rounded-2xl bg-white/5 border border-white/10 p-5">
                   <Subjects
                     subjects={subjects}
-                    onAdd={(s) => setSubjects((p) => [...p, s])}
-                    onDelete={(id) => setSubjects((p) => p.filter((x) => x.id !== id))}
+                    onAdd={async (s) => {
+                      try {
+                        const res = await fetch(`${API_BASE}/api/subjects`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify(s),
+                        });
+                        if (res.ok) {
+                          const data = await res.json();
+                          setSubjects((p) => [...p, data.subject]);
+                        }
+                      } catch (e) {
+                        console.error("Failed to add subject:", e);
+                      }
+                    }}
+                    onDelete={async (id) => {
+                      try {
+                        const res = await fetch(`${API_BASE}/api/subjects/${id}`, {
+                          method: "DELETE",
+                        });
+                        if (res.ok) {
+                          setSubjects((p) => p.filter((x) => x.id !== id));
+                        }
+                      } catch (e) {
+                        console.error("Failed to delete subject:", e);
+                      }
+                    }}
                   />
                 </div>
 
                 <div className="rounded-2xl bg-white/5 border border-white/10 p-5">
                   <TodoList
                     todos={todos}
-                    onAdd={(t) => setTodos((p) => [...p, t])}
-                    onToggle={(id) =>
-                      setTodos((p) => p.map((t) => (t.id === id ? { ...t, done: !t.done } : t)))
-                    }
-                    onDelete={(id) => setTodos((p) => p.filter((t) => t.id !== id))}
+                    onAdd={async (t) => {
+                      try {
+                        const res = await fetch(`${API_BASE}/api/simple-todos`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify(t),
+                        });
+                        if (res.ok) {
+                          const data = await res.json();
+                          setTodos((p) => [...p, data.todo]);
+                        }
+                      } catch (e) {
+                        console.error("Failed to add todo:", e);
+                      }
+                    }}
+                    onToggle={async (id) => {
+                      try {
+                        const todo = todos.find((t) => t.id === id);
+                        if (!todo) return;
+                        const res = await fetch(`${API_BASE}/api/simple-todos/${id}`, {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ ...todo, done: !todo.done }),
+                        });
+                        if (res.ok) {
+                          setTodos((p) => p.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
+                        }
+                      } catch (e) {
+                        console.error("Failed to toggle todo:", e);
+                      }
+                    }}
+                    onDelete={async (id) => {
+                      try {
+                        const res = await fetch(`${API_BASE}/api/simple-todos/${id}`, {
+                          method: "DELETE",
+                        });
+                        if (res.ok) {
+                          setTodos((p) => p.filter((t) => t.id !== id));
+                        }
+                      } catch (e) {
+                        console.error("Failed to delete todo:", e);
+                      }
+                    }}
                   />
                 </div>
               </div>
@@ -483,24 +655,6 @@ export default function DashboardPage() {
                 <OverviewCalendar events={rbcEvents} />
               </div>
 
-              <div className="rounded-3xl bg-gradient-to-br from-white/10 via-white/5 to-transparent border border-white/10 p-6">
-                <h3 className="text-sm uppercase tracking-wider text-gray-400 mb-3">Timetable</h3>
-                <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {entries.length === 0 ? (
-                    <p className="text-sm text-gray-500">No timetable entries.</p>
-                  ) : (
-                    entries.map((e) => (
-                      <div key={e.id} className="bg-white/5 border border-white/10 rounded-xl p-3">
-                        <p className="text-xs text-gray-400">
-                          {e.day} • {e.time}
-                        </p>
-                        <p className="text-sm font-medium">{e.subject}</p>
-                        {e.classroom ? <p className="text-xs text-gray-400">{e.classroom}</p> : null}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
             </motion.div>
           )}
         </section>

@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Database URL - use the working connection
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:J%40iparmar17@localhost:5433/eduassist_db")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:J%40iparmar17@localhost:5432/eduassist")
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

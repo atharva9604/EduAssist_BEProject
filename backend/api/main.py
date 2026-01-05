@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from datetime import datetime, date, timedelta
 from typing import Dict, List, Optional, Any
 import os
 from dotenv import load_dotenv
@@ -31,6 +32,15 @@ from agents.question_generator_agent import QuestionGenerator
 from agents.ppt_generator_agent import PPTContentGenerator
 from utils.ppt_creator import PPTCreator
 from utils.syllabus_store import save_syllabus_pdf, retrieve_topic_context
+from database.connection import get_db
+from database.models.calendar_event import CalendarEvent as CalendarEventDB
+from database.models.task import Task as TaskDB
+from database.models.simple_todo import SimpleTodo as SimpleTodoDB
+from database.models.subject import Subject as SubjectDB
+from database.models.user import User
+from sqlalchemy.orm import Session
+from fastapi import Depends
+from sqlalchemy import and_, or_
 
 app = FastAPI(title="EduAssist Question Paper Generator API")
 
@@ -89,7 +99,7 @@ class PPTResponse(BaseModel):
     file_path: Optional[str] = None
 
 # ========= Calendar/Timetable models =========
-class CalendarEvent(BaseModel):
+class CalendarEventResponse(BaseModel):
     id: str
     title: str
     start: str  # ISO datetime
@@ -106,8 +116,18 @@ class TaskItem(BaseModel):
 
 class TodayOverview(BaseModel):
     date: str
-    events: List[CalendarEvent]
+    events: List[CalendarEventResponse]
     tasks: List[TaskItem]
+
+class SimpleTodoItem(BaseModel):
+    id: Optional[str] = None
+    text: str
+    done: bool = False
+
+class SubjectItem(BaseModel):
+    id: Optional[str] = None
+    name: str
+    code: Optional[str] = None
 
 # ========= Calendar/Timetable helpers =========
 CAL_STORAGE_DIR = Path("storage/calendar")
@@ -283,13 +303,31 @@ async def download_ppt(filename: str):
 # ========= Timetable (CSV) and Calendar endpoints =========
 
 @app.post("/api/upload-timetable")
-async def upload_timetable(file: UploadFile = File(...), scope: Optional[str] = None, day: Optional[str] = None, mode: Optional[str] = None):
-    """
-    Upload a CSV timetable and sync to calendar events.
-    Required headers (case-insensitive): title,start,end
-    Optional: location,description,allDay,id
-    start/end can be "YYYY-MM-DD HH:MM" or ISO "YYYY-MM-DDTHH:MM".
-    """
+async def upload_timetable(
+    file: UploadFile = File(...), 
+    scope: Optional[str] = None, 
+    day: Optional[str] = None, 
+    mode: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    user_id: str = "default",  # TODO: Get from Firebase token later
+    db: Session = Depends(get_db)
+):
+
+    semester_start = None
+    semester_end=None
+    if start_date or end_date:
+        if not start_date or not end_date:
+            raise HTTPException(status_code=400,detail="Both start_date and end_date must be provided together")
+        try:
+            semester_start = datetime.strptime(start_date, "%Y-%m-%d").date()
+            semester_end =datetime.strptime(end_date,"%Y-%m-%d").date()
+            if semester_start > semester_end:
+                raise HTTPException(status_code=400, detail="Start Date must be samller than or equal to End Date")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid date format. Use YYYY-MM-DD. Error: {e}"
+)
+  
     if not (file.filename or "").lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Please upload a CSV file")
 
@@ -300,9 +338,9 @@ async def upload_timetable(file: UploadFile = File(...), scope: Optional[str] = 
     required = {"title", "start", "end"}
     lowered = {fn.lower() for fn in (reader.fieldnames or [])}
 
-    existing = _load_json(EVENTS_PATH, [])
-    existing_ids = {e.get("id") for e in existing if "id" in e}
-    new_events: List[dict] = []
+    # Will build existing_ids after deletions (if mode=replace)
+    existing_ids = set()
+    new_events: List[CalendarEventDB] = []
 
     if required.issubset(lowered):
         # Row-based timetable
@@ -314,20 +352,29 @@ async def upload_timetable(file: UploadFile = File(...), scope: Optional[str] = 
             except Exception as ex:
                 raise HTTPException(status_code=400, detail=f"Bad date in row: {row} ({ex})")
 
-            eid = row_l.get("id") or f"evt_{len(existing)+len(new_events)+1}"
-            if eid in existing_ids:
+            # Check if event already exists in database
+            existing_event = db.query(CalendarEventDB).filter(
+                and_(
+                    CalendarEventDB.user_id == user_id,
+                    CalendarEventDB.start == start_dt,
+                    CalendarEventDB.title == (row_l.get("title") or "Untitled")
+                )
+            ).first()
+            if existing_event:
                 continue
 
-            ev = {
-                "id": eid,
-                "title": row_l.get("title") or "Untitled",
-                "start": start_dt.isoformat(),
-                "end": end_dt.isoformat(),
-                "location": row_l.get("location") or None,
-                "description": row_l.get("description") or None,
-                "allDay": (row_l.get("allday") or "").lower() in ("true", "1", "yes"),
-            }
-            new_events.append(ev)
+            # Create new event in database
+            event = CalendarEventDB(
+                user_id=user_id,
+                title=row_l.get("title") or "Untitled",
+                start=start_dt,
+                end=end_dt,
+                location=row_l.get("location") or None,
+                description=row_l.get("description") or None,
+                all_day=(row_l.get("allday") or "").lower() in ("true", "1", "yes"),
+            )
+            db.add(event)
+            new_events.append(event)
     else:
         # Grid-style timetable: first row = days, first column = time ranges
         rows = list(csv.reader(content.splitlines()))
@@ -356,20 +403,89 @@ async def upload_timetable(file: UploadFile = File(...), scope: Optional[str] = 
         # Flag to use today's actual date instead of next weekday
         use_today_date = (scope or "").lower() == "today" and not day
         if not day_cols:
-            return {"success": True, "inserted": 0, "total_events": len(existing)}
+            total_count = db.query(CalendarEventDB).filter(CalendarEventDB.user_id == user_id).count()
+            return {"success": True, "inserted": 0, "total_events": total_count}
         time_re = re.compile(r"\s*(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})\s*")
         # Accept only slots that intersect 08:30–15:30
         earliest_total = 8 * 60 + 30
         latest_total = 15 * 60 + 30
 
+        # Build existing_ids if not in replace mode (to avoid duplicates)
+        if (mode or "").lower() != "replace":
+            existing_events = db.query(CalendarEventDB).filter(CalendarEventDB.user_id == user_id).all()
+            for e in existing_events:
+                event_id = f"grid_{e.start.date().isoformat()}_{e.start.strftime('%H%M')}_{e.title.replace(' ', '_')}"
+                existing_ids.add(event_id)
+
         # If mode=replace, remove existing events for targeted day(s) before inserting
         if (mode or "").lower() == "replace":
-            if use_today_date:
-                target_dates = { today.isoformat() }
+            if semester_start and semester_end:
+                # Delete ALL events that overlap with the semester date range
+                # An event overlaps if: start <= semester_end AND end >= semester_start
+                start_datetime = datetime.combine(semester_start, datetime.min.time())
+                end_datetime = datetime.combine(semester_end, datetime.max.time())
+                
+                # First, delete events in the new date range
+                deleted_count = db.query(CalendarEventDB).filter(
+                    and_(
+                        CalendarEventDB.user_id == user_id,
+                        CalendarEventDB.start <= end_datetime,
+                        CalendarEventDB.end >= start_datetime
+                    )
+                ).delete(synchronize_session=False)
+                print(f"🗑️ Deleted {deleted_count} events in date range {semester_start} to {semester_end}")
+                
+                # Also delete events with matching weekday pattern from previous syncs
+                # This ensures when you change the date range, old semester events are removed
+                csv_weekdays = {w for (_c, w) in day_cols}
+                remaining_events = db.query(CalendarEventDB).filter(CalendarEventDB.user_id == user_id).all()
+                events_to_delete = []
+                for evt in remaining_events:
+                    evt_weekday = evt.start.weekday()
+                    evt_date = evt.start.date()
+                    # Delete if weekday matches CSV AND is outside new range (old semester event)
+                    if evt_weekday in csv_weekdays:
+                        if evt_date < semester_start or evt_date > semester_end:
+                            # Only delete if it looks like a timetable event
+                            if evt.location or (evt.start.hour >= 8 and evt.start.hour <= 15):
+                                events_to_delete.append(evt.id)
+                
+                if events_to_delete:
+                    additional_deleted = db.query(CalendarEventDB).filter(
+                        CalendarEventDB.id.in_(events_to_delete)
+                    ).delete(synchronize_session=False)
+                    print(f"🗑️ Deleted {additional_deleted} additional old semester events with matching weekdays")
+            elif use_today_date:
+                # Delete today's events from database
+                start_dt = datetime.combine(today, datetime.min.time())
+                end_dt = datetime.combine(today, datetime.max.time())
+                db.query(CalendarEventDB).filter(
+                    and_(
+                        CalendarEventDB.user_id == user_id,
+                        CalendarEventDB.start >= start_dt,
+                        CalendarEventDB.end <= end_dt
+                    )
+                ).delete(synchronize_session=False)
             else:
-                target_dates = set((_next_weekday(today, w)).isoformat() for (_c, w) in day_cols)
-            existing = [ev for ev in existing if (ev.get("start", "")[:10] not in target_dates)]
-            existing_ids = {e.get("id") for e in existing if "id" in e}
+                # Delete events for next weekday occurrences
+                target_dates = [_next_weekday(today, w) for (_c, w) in day_cols]
+                for target_date in target_dates:
+                    start_dt = datetime.combine(target_date, datetime.min.time())
+                    end_dt = datetime.combine(target_date, datetime.max.time())
+                    db.query(CalendarEventDB).filter(
+                        and_(
+                            CalendarEventDB.user_id == user_id,
+                            CalendarEventDB.start >= start_dt,
+                            CalendarEventDB.end <= end_dt
+                        )
+                    ).delete(synchronize_session=False)
+            db.commit()  # Commit deletions before adding new events
+            
+            # Rebuild existing_ids AFTER deletion (only for events still in database)
+            remaining_events = db.query(CalendarEventDB).filter(CalendarEventDB.user_id == user_id).all()
+            for e in remaining_events:
+                event_id = f"grid_{e.start.date().isoformat()}_{e.start.strftime('%H%M')}_{e.title.replace(' ', '_')}"
+                existing_ids.add(event_id)
 
         for r in rows[1:]:
             if not r:
@@ -419,82 +535,280 @@ async def upload_timetable(file: UploadFile = File(...), scope: Optional[str] = 
                     except Exception:
                         subj = cell.strip()
 
-                target_date = today if use_today_date else _next_weekday(today, weekday)
-                try:
-                    start_dt = datetime.fromisoformat(f"{target_date.isoformat()} {start_t}:00")
-                    end_dt = datetime.fromisoformat(f"{target_date.isoformat()} {end_t}:00")
-                except Exception:
-                    continue
+                if semester_start and semester_end:
+                    target_dates = []
+                    first_date = semester_start
+                    current_weekday = first_date.weekday()
+                    
+                    # Calculate days until next occurrence of target weekday
+                    days_until_weekday = (weekday - current_weekday + 7) % 7
+                    
+                    # Start from first occurrence of target weekday >= semester_start
+                    current_date = first_date + timedelta(days=days_until_weekday)
+                    
+                    # Safety check
+                    if current_date < first_date:
+                        current_date += timedelta(days=7)
+                    
+                    # Generate ALL dates for this weekday in the entire range
+                    while current_date <= semester_end:
+                        target_dates.append(current_date)
+                        current_date += timedelta(days=7)
+                    
+                elif use_today_date:
+                    target_dates = [today]
+                else:
+                    target_dates = [_next_weekday(today, weekday)]
+                
+                # Create events for each target date
+                for target_date in target_dates:
+                    try:
+                        start_dt = datetime.fromisoformat(f"{target_date.isoformat()} {start_t}:00")
+                        end_dt = datetime.fromisoformat(f"{target_date.isoformat()} {end_t}:00")
+                    except Exception:
+                        continue
+                    
+                    # Check if event already exists in database (only check if not in replace mode or if existing_ids was populated)
+                    if existing_ids:
+                        event_id = f"grid_{target_date.isoformat()}_{start_t.replace(':','')}_{subj.replace(' ', '_')}"
+                        if event_id in existing_ids:
+                            continue
+                    
+                    # Always check by actual database query to avoid duplicates
+                    existing_event = db.query(CalendarEventDB).filter(
+                        and_(
+                            CalendarEventDB.user_id == user_id,
+                            CalendarEventDB.start == start_dt,
+                            CalendarEventDB.title == (subj if not location else f"{subj} ({location})")
+                        )
+                    ).first()
+                    if existing_event:
+                        continue
+                    
+                    # Create new event in database
+                    event = CalendarEventDB(
+                        user_id=user_id,
+                        title=subj if not location else f"{subj} ({location})",
+                        start=start_dt,
+                        end=end_dt,
+                        location=location,
+                        description=None,
+                        all_day=False,
+                    )
+                    db.add(event)
+                    new_events.append(event) 
 
-                eid = f"grid_{target_date.isoformat()}_{start_t.replace(':','')}_{subj.replace(' ', '_')}"
-                if eid in existing_ids:
-                    continue
-                ev = {
-                    "id": eid,
-                    "title": subj if not location else f"{subj} ({location})",
-                    "start": start_dt.isoformat(),
-                    "end": end_dt.isoformat(),
-                    "location": location,
-                    "description": None,
-                    "allDay": False,
-                }
-                new_events.append(ev)
-
-    merged = existing + new_events
-    _save_json(EVENTS_PATH, merged)
-    return {"success": True, "inserted": len(new_events), "total_events": len(merged)}
+    # Commit all new events to database
+    db.commit()
+    
+    # Refresh events to get their database IDs
+    for event in new_events:
+        db.refresh(event)
+    
+    # Get total count from database
+    total_count = db.query(CalendarEventDB).filter(CalendarEventDB.user_id == user_id).count()
+    
+    return {"success": True, "inserted": len(new_events), "total_events": total_count}
 
 @app.get("/api/events")
-def list_events(start: Optional[str] = None, end: Optional[str] = None):
-    events = _load_json(EVENTS_PATH, [])
-    if not start and not end:
-        return {"events": events}
-
-    def in_range(ev: dict) -> bool:
-        s = datetime.fromisoformat(ev["start"].replace("Z", ""))
-        e = datetime.fromisoformat(ev["end"].replace("Z", ""))
-        start_dt = datetime.fromisoformat(f"{start} 00:00:00") if start else None
-        end_dt = datetime.fromisoformat(f"{end} 23:59:59") if end else None
-        if start_dt and e < start_dt:
-            return False
-        if end_dt and s > end_dt:
-            return False
-        return True
-
-    return {"events": [ev for ev in events if in_range(ev)]}
+def list_events(
+    start: Optional[str] = None, 
+    end: Optional[str] = None,
+    user_id: str = "default",  # TODO: Get from Firebase token
+    db: Session = Depends(get_db)
+):
+    """Get calendar events for a user, optionally filtered by date range"""
+    query = db.query(CalendarEventDB).filter(CalendarEventDB.user_id == user_id)
+    
+    if start or end:
+        if start:
+            start_dt = datetime.fromisoformat(f"{start} 00:00:00")
+            query = query.filter(CalendarEventDB.start >= start_dt)
+        if end:
+            end_dt = datetime.fromisoformat(f"{end} 23:59:59")
+            query = query.filter(CalendarEventDB.end <= end_dt)
+    
+    events = query.order_by(CalendarEventDB.start).all()
+    return {"events": [e.to_dict() for e in events]}
 
 @app.post("/api/tasks")
-def add_task(task: TaskItem):
-    tasks = _load_json(TASKS_PATH, [])
-    if any(t.get("id") == task.id for t in tasks):
+def add_task(
+    task: TaskItem,
+    user_id: str = "default",  # TODO: Get from Firebase token
+    db: Session = Depends(get_db)
+):
+    """Add a new task for a user"""
+    # Check if task with same ID already exists
+    existing = db.query(TaskDB).filter(
+        and_(
+            TaskDB.user_id == user_id,
+            TaskDB.id == int(task.id) if task.id.isdigit() else None
+        )
+    ).first()
+    if existing:
         raise HTTPException(status_code=400, detail="Task id already exists")
-    tasks.append(task.model_dump())
-    _save_json(TASKS_PATH, tasks)
-    return {"success": True}
+    
+    due_date = datetime.fromisoformat(task.due_date).date()
+    new_task = TaskDB(
+        user_id=user_id,
+        title=task.title,
+        due_date=due_date,
+        done=task.done
+    )
+    db.add(new_task)
+    db.commit()
+    db.refresh(new_task)
+    return {"success": True, "task": new_task.to_dict()}
 
 @app.get("/api/tasks")
-def list_tasks():
-    return {"tasks": _load_json(TASKS_PATH, [])}
+def list_tasks(
+    user_id: str = "default",  # TODO: Get from Firebase token
+    db: Session = Depends(get_db)
+):
+    """Get all tasks for a user"""
+    tasks = db.query(TaskDB).filter(TaskDB.user_id == user_id).order_by(TaskDB.due_date).all()
+    return {"tasks": [t.to_dict() for t in tasks]}
+
+# ========= Simple Todos (Dashboard) endpoints =========
+@app.get("/api/simple-todos")
+def list_simple_todos(
+    user_id: str = "default",  # TODO: Get from Firebase token
+    db: Session = Depends(get_db)
+):
+    """Get all simple todos for a user"""
+    todos = db.query(SimpleTodoDB).filter(SimpleTodoDB.user_id == user_id).order_by(SimpleTodoDB.id).all()
+    return {"todos": [t.to_dict() for t in todos]}
+
+@app.post("/api/simple-todos")
+def add_simple_todo(
+    todo: SimpleTodoItem,
+    user_id: str = "default",  # TODO: Get from Firebase token
+    db: Session = Depends(get_db)
+):
+    """Add a new simple todo"""
+    new_todo = SimpleTodoDB(
+        user_id=user_id,
+        text=todo.text,
+        done=todo.done
+    )
+    db.add(new_todo)
+    db.commit()
+    db.refresh(new_todo)
+    return {"success": True, "todo": new_todo.to_dict()}
+
+@app.put("/api/simple-todos/{todo_id}")
+def update_simple_todo(
+    todo_id: int,
+    todo: SimpleTodoItem,
+    user_id: str = "default",  # TODO: Get from Firebase token
+    db: Session = Depends(get_db)
+):
+    """Update a simple todo (toggle done or update text)"""
+    existing = db.query(SimpleTodoDB).filter(
+        and_(SimpleTodoDB.id == todo_id, SimpleTodoDB.user_id == user_id)
+    ).first()
+    if not existing:
+        raise HTTPException(status_code=404, detail="Todo not found")
+    
+    existing.text = todo.text
+    existing.done = todo.done
+    db.commit()
+    db.refresh(existing)
+    return {"success": True, "todo": existing.to_dict()}
+
+@app.delete("/api/simple-todos/{todo_id}")
+def delete_simple_todo(
+    todo_id: int,
+    user_id: str = "default",  # TODO: Get from Firebase token
+    db: Session = Depends(get_db)
+):
+    """Delete a simple todo"""
+    todo = db.query(SimpleTodoDB).filter(
+        and_(SimpleTodoDB.id == todo_id, SimpleTodoDB.user_id == user_id)
+    ).first()
+    if not todo:
+        raise HTTPException(status_code=404, detail="Todo not found")
+    
+    db.delete(todo)
+    db.commit()
+    return {"success": True}
+
+# ========= Subjects endpoints =========
+@app.get("/api/subjects")
+def list_subjects(
+    user_id: str = "default",  # TODO: Get from Firebase token
+    db: Session = Depends(get_db)
+):
+    """Get all subjects for a user"""
+    subjects = db.query(SubjectDB).filter(SubjectDB.user_id == user_id).order_by(SubjectDB.name).all()
+    return {"subjects": [s.to_dict() for s in subjects]}
+
+@app.post("/api/subjects")
+def add_subject(
+    subject: SubjectItem,
+    user_id: str = "default",  # TODO: Get from Firebase token
+    db: Session = Depends(get_db)
+):
+    """Add a new subject"""
+    new_subject = SubjectDB(
+        user_id=user_id,
+        name=subject.name,
+        code=subject.code
+    )
+    db.add(new_subject)
+    db.commit()
+    db.refresh(new_subject)
+    return {"success": True, "subject": new_subject.to_dict()}
+
+@app.delete("/api/subjects/{subject_id}")
+def delete_subject(
+    subject_id: int,
+    user_id: str = "default",  # TODO: Get from Firebase token
+    db: Session = Depends(get_db)
+):
+    """Delete a subject"""
+    subject = db.query(SubjectDB).filter(
+        and_(SubjectDB.id == subject_id, SubjectDB.user_id == user_id)
+    ).first()
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+    
+    db.delete(subject)
+    db.commit()
+    return {"success": True}
 
 @app.get("/api/today-overview", response_model=TodayOverview)
-def today_overview():
+def today_overview(
+    user_id: str = "default",  # TODO: Get from Firebase token
+    db: Session = Depends(get_db)
+):
+    """Get today's events and tasks for a user"""
     today = date.today()
-    events = _load_json(EVENTS_PATH, [])
-    tasks = _load_json(TASKS_PATH, [])
-
+    
+    # Get today's events from database
     start_dt = datetime.combine(today, datetime.min.time())
     end_dt = datetime.combine(today, datetime.max.time())
-
-    def is_today(ev: dict) -> bool:
-        try:
-            s = datetime.fromisoformat(ev["start"].replace("Z", ""))
-            e = datetime.fromisoformat(ev["end"].replace("Z", ""))
-            return not (e < start_dt or s > end_dt)
-        except Exception:
-            return False
-
-    todays_events = [e for e in events if is_today(e)]
-    todays_tasks = [t for t in tasks if t.get("due_date") == today.isoformat() and not t.get("done", False)]
+    
+    todays_events_db = db.query(CalendarEventDB).filter(
+        and_(
+            CalendarEventDB.user_id == user_id,
+            CalendarEventDB.start >= start_dt,
+            CalendarEventDB.end <= end_dt
+        )
+    ).order_by(CalendarEventDB.start).all()
+    
+    todays_events = [e.to_dict() for e in todays_events_db]
+    
+    # Get today's tasks from database
+    todays_tasks_db = db.query(TaskDB).filter(
+        and_(
+            TaskDB.user_id == user_id,
+            TaskDB.due_date == today,
+            TaskDB.done == False
+        )
+    ).order_by(TaskDB.due_date).all()
+    
+    todays_tasks = [t.to_dict() for t in todays_tasks_db]
 
     return TodayOverview(
         date=today.isoformat(),
