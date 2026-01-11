@@ -16,14 +16,22 @@ const Navbar = () => {
 
   // 🔹 Track Firebase user
   useEffect(() => {
+    if (!auth) {
+      // Firebase not configured, skip auth
+      return;
+    }
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
     });
     return () => unsubscribe();
   }, []);
 
-  // 🔹 Sign in with Google
+  // 🔹 Sign in with Google (disabled when Firebase not configured)
   const loginWithGoogle = async () => {
+    if (!auth) {
+      // Skip login when Firebase is not configured
+      return;
+    }
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
@@ -34,6 +42,7 @@ const Navbar = () => {
 
   // 🔹 Logout
   const logout = async () => {
+    if (!auth) return;
     try {
       await signOut(auth);
     } catch (error) {
@@ -57,8 +66,8 @@ const Navbar = () => {
         {/* 👇 User Icon or Profile Photo */}
         {!user ? (
           <FaUserLarge
-            className="text-gray-300 hover:text-[#DAA520] hover:cursor-pointer"
-            onClick={loginWithGoogle}
+            className="text-gray-300"
+            // Login disabled when Firebase is not configured; icon is static
           />
         ) : (
           <div className="flex items-center gap-3">

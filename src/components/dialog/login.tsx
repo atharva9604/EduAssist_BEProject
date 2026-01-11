@@ -10,6 +10,10 @@ interface LoginModalProps {
 
 export default function LoginModal({ onClose, onLoginSuccess }: LoginModalProps) {
   const handleGoogleLogin = async () => {
+    if (!auth) {
+      alert("Firebase authentication is not configured. Please add Firebase keys to use Google login.");
+      return;
+    }
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);

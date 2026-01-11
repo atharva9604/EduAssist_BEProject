@@ -5,6 +5,7 @@ pydantic==2.5.0
 
 # AI/ML Libraries
 google-generativeai==0.3.2
+groq==0.4.1
 sentence-transformers==2.2.2
 crewai==0.28.8
 crewai-tools==0.1.6
@@ -27,3 +28,4 @@ aiofiles==23.2.1
 # Utilities
 python-dotenv==1.0.0
 python-multipart==0.0.6
+Pillow==10.1.0

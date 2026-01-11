@@ -14,6 +14,10 @@ const GetStartedButton = () => {
 
   // Track auth state but do NOT redirect automatically
   useEffect(() => {
+    if (!auth) {
+      // Firebase not configured; skip auth tracking
+      return;
+    }
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
     });
@@ -21,11 +25,8 @@ const GetStartedButton = () => {
   }, []);
 
   const handleGetStarted = () => {
-    if (user) {
-      router.push("/dashboard"); 
-    } else {
-      setShowLoginModal(true); 
-    }
+    // Skip login for now; go directly to dashboard
+    router.push("/dashboard");
   };
 
   const handleLoginSuccess = () => {
@@ -43,12 +44,7 @@ const GetStartedButton = () => {
         Get Started
       </button>
 
-      {showLoginModal && (
-        <LoginModal
-          onClose={() => setShowLoginModal(false)}
-          onLoginSuccess={handleLoginSuccess}
-        />
-      )}
+      {/* Login modal disabled for now */}
     </>
   );
 };

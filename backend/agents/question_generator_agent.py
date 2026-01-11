@@ -5,13 +5,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Configure Gemini
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+# Configure Gemini (optional - can use Groq via ModelManager)
+gemini_key = os.getenv("GEMINI_API_KEY")
+if gemini_key:
+    genai.configure(api_key=gemini_key)
+else:
+    print("⚠ GEMINI_API_KEY not set - QuestionGenerator will need Groq API key")
 
 class QuestionGenerator:
     """Question Generator Agent that creates various types of questions"""
     
     def __init__(self):
+        gemini_key = os.getenv("GEMINI_API_KEY")
+        if not gemini_key:
+            raise RuntimeError("GEMINI_API_KEY not set. Please set it in backend/.env file or use Groq for PPT generation.")
         self.model = genai.GenerativeModel('gemini-pro-latest')
     
     def generate_questions(self, content_analysis: dict, requirements: dict) -> dict:

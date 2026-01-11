@@ -5,14 +5,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Configure Gemini
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+# Configure Gemini (optional - can use Groq via ModelManager)
+gemini_key = os.getenv("GEMINI_API_KEY")
+if gemini_key:
+    genai.configure(api_key=gemini_key)
+else:
+    print("⚠ GEMINI_API_KEY not set - ContentAnalyzer will need Groq API key")
 
 class ContentAnalyzer:
     """Simple content analyzer using Gemini AI"""
     
     def __init__(self):
         # Use gemini-pro-latest (it's working!)
+        gemini_key = os.getenv("GEMINI_API_KEY")
+        if not gemini_key:
+            raise RuntimeError("GEMINI_API_KEY not set. Please set it in backend/.env file or use Groq for PPT generation.")
         self.model = genai.GenerativeModel('gemini-pro-latest')
     
     def analyze_content(self, content: str, document_type: str = "text") -> dict:

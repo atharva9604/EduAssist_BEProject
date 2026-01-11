@@ -1,9 +1,15 @@
+export interface PreferredImageUrl {
+  slide_number: number;
+  url: string;
+}
+
 export interface PPTGenerationPayload {
   topic: string;
   content: string;
   num_slides: number;
   subject?: string;
   module?: string;
+  preferred_image_urls?: PreferredImageUrl[];
 }
 
 export interface PPTGenerateResponse {

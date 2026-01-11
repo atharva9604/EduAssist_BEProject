@@ -1,0 +1,37 @@
+I am uploading 3 images.
+
+> Create an 8-slide PPT on Database Normalization, subject Database Management Systems, with this structure:
+> 
+> - Slide 1 title: Introduction to Database Normalization
+> - Slide 2 title: First Normal Form (1NF)
+> - Slide 3 title: Second Normal Form (2NF)
+> - Slide 4 title: Third Normal Form (3NF)
+> - Slide 5 title: Boyce-Codd Normal Form (BCNF)
+> - Slide 6 title: Normalization Example Walkthrough
+> - Slide 7 title: Denormalization and Trade-offs
+> - Slide 8 title: Best Practices and Summary
+> 
+> For slide 2 (First Normal Form), use exactly these bullets and do not change them:
+> 1. Eliminates repeating groups by ensuring each column contains atomic values
+> 2. Each row must be unique and identified by a primary key
+> 3. No multivalued attributes or composite values in a single column
+> 4. Example: Split "Address" into Street, City, State, ZIP as separate columns
+> 
+> For slide 4 (Third Normal Form), use exactly these bullets:
+> 1. Removes transitive dependencies where non-key attributes depend on other non-key attributes
+> 2. Ensures each non-key attribute is directly dependent on the primary key only
+> 3. Eliminates redundancy caused by indirect relationships between attributes
+> 4. Example: If Employee → Department → Location, separate into Employee → Department and Department → Location tables
+> 
+> For slide 6 (Normalization Example Walkthrough), use the first uploaded image and you generate the bullets yourself.
+> 
+> For slide 7 (Denormalization and Trade-offs), use the second uploaded image and you generate the bullets yourself.
+> 
+> For slide 8 (Best Practices and Summary), use the third uploaded image and you generate the bullets yourself.
+> 
+> For all other slides (1, 3, 5), you generate the bullets and speaker notes yourself.
+
+
+
+
+

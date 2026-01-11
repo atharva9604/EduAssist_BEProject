@@ -50,6 +50,12 @@ export default function DashboardPage() {
   const [todayTasks, setTodayTasks] = useState<any[]>([]);
 
   useEffect(() => {
+    if (!auth) {
+      // Firebase not configured, set default user
+      setTeacherName("Teacher");
+      setAvatar("/assets/add.png");
+      return;
+    }
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       if (u) {
@@ -99,6 +105,10 @@ export default function DashboardPage() {
   };
 
   const handleLogout = async () => {
+    if (!auth) {
+      router.push("/");
+      return;
+    }
     try {
       await signOut(auth);
       router.push("/");

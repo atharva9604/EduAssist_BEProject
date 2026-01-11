@@ -16,6 +16,11 @@ const MainPage = () => {
   const [activeTab,setActiveTab] = useState('chat');
 
   useEffect(()=>{
+    if (!auth) {
+      // Firebase not configured; skip auth tracking
+      setLoading(false);
+      return;
+    }
     const unsubscribe = onAuthStateChanged(auth,(user)=>{
       setUser(user);
       setLoading(false);
@@ -29,6 +34,10 @@ const MainPage = () => {
   };
 
   const handleLogout = async () => {
+    if (!auth) {
+      router.push("/"); 
+      return;
+    }
     try {
       await signOut(auth);
       router.push("/"); 

@@ -14,6 +14,11 @@ export default function HomePage() {
   const [checking,setChecking] = useState(true);
 
 useEffect(()=>{
+  if (!auth) {
+    // Firebase not configured, skip auth check
+    setChecking(false);
+    return;
+  }
   const unsubscribe = onAuthStateChanged(auth,(u)=>{
     if(u){
      

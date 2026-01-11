@@ -2,6 +2,10 @@ import { db } from "@/lib/firebase";
 import { collection, getDoc, addDoc, doc, setDoc, getDocs, serverTimestamp, updateDoc } from "firebase/firestore";
 
 export async function ensureUserProfile(user: {uid:string; displayName?: string|null; email?: string | null; photoURL?:string|null}){
+   if (!db) {
+     console.warn("Firestore not available - skipping user profile creation");
+     return { needsOnBoarding: false };
+   }
    const ref = doc(db,"users",user.uid);
    const snap = await getDoc(ref);
    if(!snap.exists){

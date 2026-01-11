@@ -1,51 +1,65 @@
 'use client';
 
 import React, { useState } from 'react';
-import { generatePptMulti, listPresentations, downloadPpt, uploadSyllabus, generatePpt } from '../services/pptService';
+import { uploadSyllabus, listPresentations, downloadPpt } from '../services/pptService';
+import { PiFilePptBold, PiPaperPlaneTiltBold } from "react-icons/pi";
+import { X } from "lucide-react";
+import Link from "next/link";
 
-type Message = { role: 'user' | 'system'; text: string };
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+
+type AssistResult = {
+  text: string;
+  link?: string;
+  filename?: string;
+  type?: string;
+};
 
 export default function PPTGenerator() {
-  const [topic, setTopic] = useState('');
-  const [subject, setSubject] = useState('');
-  const [content, setContent] = useState('');
-  const [numSlides, setNumSlides] = useState(8); // can remove this if not needed
+  const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    { role: 'system', text: 'Hi! Enter Topics (one per line) and a Subject, then click Generate PPT.' },
-  ]);
-  const [presentations, setPresentations] = useState<any[]>([]);
+  const [error, setError] = useState("");
+  const [result, setResult] = useState<AssistResult | null>(null);
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [showPPTModes, setShowPPTModes] = useState(false);
   const [syllabusFile, setSyllabusFile] = useState<File | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
+  const [uploading, setUploading] = useState(false);
+  const [presentations, setPresentations] = useState<any[]>([]);
 
-  const push = (m: Message) => setMessages((prev) => [...prev, m]);
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const imageFiles = files.filter(file => 
+      file.type.startsWith('image/') && 
+      ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)
+    );
+    setSelectedImages(prev => [...prev, ...imageFiles]);
+    e.target.value = '';
+  };
 
-  // --- GENERATE HANDLER: uses single-topic API when user provides content ---
-  const handleGenerate = async () => {
-    const topicList = topic
-      .split('\n')
-      .map(t => t.trim())
-      .filter(Boolean);
-    if (topicList.length === 0 || !subject.trim()) return;
-    setLoading(true);
-    push({ role: 'user', text: `Topics: ${topicList.join(', ')}\nSubject: ${subject}${content.trim() ? `\nContent provided (${content.trim().length} chars)` : ''}` });
+  const removeImage = (index: number) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSyllabusUpload = async () => {
+    if (!syllabusFile) {
+      setUploadStatus({ type: 'error', message: 'Please choose a PDF syllabus to upload.' });
+      return;
+    }
+    if (syllabusFile.type !== 'application/pdf') {
+      setUploadStatus({ type: 'error', message: 'Only PDF files are allowed.' });
+      return;
+    }
+    setUploading(true);
+    setUploadStatus({ type: null, message: '' });
     try {
-      let resp;
-      if (content.trim() && topicList.length === 1) {
-        // If user provided content for a single topic, use the single-topic endpoint
-        resp = await generatePpt({ topic: topicList[0], content, num_slides: numSlides, subject });
-      } else {
-        // Otherwise generate via multi-topic endpoint (Gemini uses its own knowledge)
-        resp = await generatePptMulti(topicList, subject, numSlides);
-      }
-      if (resp.success && resp.file_path) {
-        push({ role: 'system', text: `Presentation created ✅\nFile: ${resp.presentation_id}` });
-      } else {
-        push({ role: 'system', text: 'Generation failed. Please try again.' });
-      }
+      await uploadSyllabus(syllabusFile);
+      setUploadStatus({ type: 'success', message: 'Syllabus uploaded successfully ✅' });
+      setSyllabusFile(null);
     } catch (e: any) {
-      push({ role: 'system', text: `Error: ${e.message}` });
+      setUploadStatus({ type: 'error', message: `Upload failed: ${e.message}` });
     } finally {
-      setLoading(false);
+      setUploading(false);
     }
   };
 
@@ -53,150 +67,361 @@ export default function PPTGenerator() {
     try {
       const data = await listPresentations();
       setPresentations(data.presentations || []);
-      push({ role: 'system', text: `Found ${data.presentations?.length || 0} presentations.` });
     } catch (e: any) {
-      push({ role: 'system', text: `Error listing files: ${e.message}` });
-    }
-  };
-
-  const handleSyllabusUpload = async () => {
-    try {
-      if (!syllabusFile) {
-        push({ role: 'system', text: 'Please choose a PDF syllabus to upload.' });
-        return;
-      }
-      if (syllabusFile.type !== 'application/pdf') {
-        push({ role: 'system', text: 'Only PDF files are allowed.' });
-        return;
-      }
-      setLoading(true);
-      await uploadSyllabus(syllabusFile);
-      push({ role: 'system', text: 'Syllabus uploaded ✅' });
-    } catch (e: any) {
-      push({ role: 'system', text: `Upload failed: ${e.message}` });
-    } finally {
-      setLoading(false);
+      setError(`Error listing files: ${e.message}`);
     }
   };
 
   const handleDownload = async (filename: string) => {
     try {
       await downloadPpt(filename);
-      push({ role: 'system', text: `Downloaded: ${filename}` });
     } catch (e: any) {
-      push({ role: 'system', text: `Download error: ${e.message}` });
+      setError(`Download error: ${e.message}`);
+    }
+  };
+
+  // PPT Mode templates - These match backend detection patterns
+  const pptModeTemplates = {
+    mode1: `Create a {NUMBER}-slide PPT on {TOPIC}.
+Subject: {SUBJECT}
+
+Use the default slide structure.
+Generate all content yourself.
+Add relevant images automatically.`,
+    mode2: `Create a {NUMBER}-slide PPT on {TOPIC}.
+Subject: {SUBJECT}
+
+Slide titles:
+Slide 1: {TITLE}
+Slide 2: {TITLE}
+Slide 3: {TITLE}
+
+Generate content for each slide based on its title.`,
+    mode3: `Create a {NUMBER}-slide PPT on {TOPIC}.
+Subject: {SUBJECT}
+
+Use EXACT content below. Do NOT modify.
+
+Slide 1:
+Title: {TITLE}
+Content:
+- {bullet 1}
+- {bullet 2}
+- {bullet 3}
+
+Slide 2:
+Title: {TITLE}
+Content:
+- {bullet 1}
+- {bullet 2}
+- {bullet 3}`,
+    mode4: `Create a {NUMBER}-slide PPT on {TOPIC}.
+Subject: {SUBJECT}
+
+Slide structure:
+Slide 1: {TITLE}
+Slide 2: {TITLE}
+Slide 3: {TITLE}
+
+Image placement:
+Use Image 1 on Slide {X}
+Use Image 2 on Slide {Y}
+
+Generate content where not provided.`,
+    mode5: `Create a {NUMBER}-slide PPT on {TOPIC}.
+Subject: {SUBJECT}
+
+Slide instructions:
+
+Slide 1:
+Title: {TITLE}
+Generate content.
+Use Image 1.
+
+Slide 2:
+Title: {TITLE}
+Use EXACT content:
+- {bullet 1}
+- {bullet 2}
+
+Slide 3:
+Title: {TITLE}
+Generate content.
+No image.`
+  };
+
+  const insertPPTTemplate = (template: string) => {
+    setPrompt(template);
+    setShowPPTModes(false);
+    setTimeout(() => {
+      const textarea = document.querySelector('textarea');
+      if (textarea) {
+        textarea.focus();
+        const firstPlaceholder = template.indexOf('{');
+        if (firstPlaceholder !== -1) {
+          textarea.setSelectionRange(firstPlaceholder, firstPlaceholder);
+        }
+      }
+    }, 100);
+  };
+
+  const handleAskCopilot = async () => {
+    if (!prompt.trim()) return;
+    setError("");
+    setResult(null);
+    setLoading(true);
+    try {
+      let res;
+      
+      if (selectedImages.length > 0) {
+        const formData = new FormData();
+        formData.append('prompt', prompt);
+        selectedImages.forEach((img) => {
+          formData.append('images', img);
+        });
+        
+        res = await fetch(`${API_BASE}/api/assist`, {
+          method: "POST",
+          body: formData,
+        });
+      } else {
+        res = await fetch(`${API_BASE}/api/assist`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt }),
+        });
+      }
+      
+      if (!res.ok) {
+        const detail = await res.text();
+        throw new Error(detail || "Request failed");
+      }
+      
+      const data = await res.json();
+      const link =
+        data.link && data.link.startsWith("http")
+          ? data.link
+          : data.link
+          ? `${API_BASE}${data.link}`
+          : undefined;
+      setResult({
+        text: data.message || "Done.",
+        link,
+        filename: data.filename,
+        type: data.type,
+      });
+      setSelectedImages([]);
+      setPrompt(""); // Clear prompt after successful generation
+    } catch (e: any) {
+      setError(e?.message || "Failed to send prompt");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="max-w-5xl mx-auto p-6 text-gray-100 min-h-screen bg-gray-950">
+      {/* 1. Page Heading */}
       <h1 className="text-3xl font-bold mb-6 text-[#DAA520]">PPT Generator</h1>
 
-      {/* Chat window */}
-      <div className="bg-gray-800 rounded-lg p-4 h-80 overflow-y-auto mb-4 space-y-3 border border-gray-700">
-        {messages.map((m, i) => (
-          <div key={i} className={m.role === 'user' ? 'text-right' : 'text-left'}>
-            <span className={`inline-block px-3 py-2 rounded-lg ${m.role === 'user' ? 'bg-[#DAA520] text-black' : 'bg-gray-800 text-gray-100'}`}>
-              {m.text}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* Form */}
+      {/* 2. Syllabus Upload Bar */}
       <div className="bg-gray-900 rounded-lg p-6 mb-6 border border-gray-800">
-        {/* Syllabus upload */}
-        <div className="mb-6">
-          <label className="block mb-2 font-semibold">Upload Syllabus PDF (one-time)</label>
-          <div className="flex gap-3 items-center">
-            <input
-              type="file"
-              accept="application/pdf"
-              onChange={(e) => setSyllabusFile(e.target.files?.[0] || null)}
-              className="flex-1 p-2 rounded-lg bg-gray-700 text-white border border-gray-600"
-            />
-            <button
-              onClick={handleSyllabusUpload}
-              className="px-4 py-2 bg-[#DAA520] text-black rounded-lg font-semibold hover:bg-[#B8860B] transition"
-              disabled={loading}
-            >
-              {loading ? 'Uploading…' : 'Upload'}
-            </button>
-          </div>
-        </div>
-        {/* Multi-topic and subject input */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-2">
-            <label htmlFor="topics" className="block text-sm font-medium text-gray-700 mb-2">
-              Topics (one per line) *
-            </label>
-            <textarea
-              id="topics"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Photosynthesis&#10;Cell Division&#10;World War II"
-              rows={5}
-              required
-            />
-            {/* Optional content box */}
-            <label htmlFor="content" className="block text-sm font-medium text-gray-700 mb-2 mt-4">
-              Content (optional — used when a single topic is entered)
-            </label>
-            <textarea
-              id="content"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Paste your own points or text here. If left empty, Gemini will generate content based on the topic and subject."
-              rows={6}
-            />
-          </div>
-          <div>
-            <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-2">
-              Subject *
-            </label>
-            <input
-              type="text"
-              id="subject"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Biology"
-              required
-            />
-            <label htmlFor="numslides" className="block text-sm font-medium text-gray-700 mb-2 mt-4">
-              Slide count
-            </label>
-            <input
-              type="number"
-              id="numslides"
-              value={numSlides}
-              min={1}
-              onChange={(e) => setNumSlides(parseInt(e.target.value || '0', 10))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g., 12"
-            />
-          </div>
-        </div>
-        <div className="mt-4 flex gap-3">
+        <label className="block mb-2 font-semibold">Upload Syllabus PDF (one-time)</label>
+        <div className="flex gap-3 items-center">
+          <input
+            type="file"
+            accept="application/pdf"
+            onChange={(e) => setSyllabusFile(e.target.files?.[0] || null)}
+            className="flex-1 p-2 rounded-lg bg-gray-700 text-white border border-gray-600 text-sm"
+          />
           <button
-            onClick={handleGenerate}
-            disabled={loading || !topic.trim() || !subject.trim()}
-            className="px-6 py-3 bg-[#DAA520] text-black rounded-lg font-semibold hover:bg-[#B8860B] transition disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={handleSyllabusUpload}
+            className="px-4 py-2 bg-[#DAA520] text-black rounded-lg font-semibold hover:bg-[#B8860B] transition disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={uploading || !syllabusFile}
           >
-            {loading ? 'Generating…' : 'Generate PPT'}
-          </button>
-          <button
-            onClick={handleList}
-            className="px-6 py-3 bg-gray-700 text-white rounded-lg border border-gray-600 hover:bg-gray-600"
-          >
-            View Previous PPTs
+            {uploading ? 'Uploading…' : 'Upload'}
           </button>
         </div>
+        
+        {/* 3. Upload Status Message */}
+        {uploadStatus.type && (
+          <div className={`mt-3 text-sm ${
+            uploadStatus.type === 'success' 
+              ? 'text-green-400' 
+              : 'text-red-400'
+          }`}>
+            {uploadStatus.message}
+          </div>
+        )}
       </div>
 
-      {/* Previous list */}
+      {/* 4. Chat Box (Same as Chat Page) */}
+      <div className="bg-gray-900 rounded-lg p-6 mb-6 border border-gray-800">
+        <div className="space-y-4">
+          <textarea 
+            className="w-full h-60 p-5 border border-gray-600 rounded-lg bg-gray-800 text-white placeholder-gray-400 focus:border-[#DAA520] focus:outline-none resize-none"
+            placeholder="Type your PPT request here... (e.g., 'Create a 5-slide PPT on Photosynthesis. Subject: Biology')"
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            disabled={loading}
+          />
+          
+          {/* Image upload section */}
+          <div className="space-y-2">
+            <label className="block text-sm text-gray-300">
+              Upload Images (optional): Attach images to use in PPT slides
+            </label>
+            <div className="flex items-center gap-2 flex-wrap">
+              <label className="cursor-pointer px-3 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 transition text-sm">
+                📷 Select Images
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageSelect}
+                  className="hidden"
+                  disabled={loading}
+                />
+              </label>
+              {selectedImages.map((img, idx) => (
+                <div key={idx} className="flex items-center gap-2 bg-gray-700 px-2 py-1 rounded text-sm">
+                  <span className="text-gray-300 truncate max-w-[150px]">{img.name}</span>
+                  <button
+                    onClick={() => removeImage(idx)}
+                    className="text-red-400 hover:text-red-300"
+                    disabled={loading}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+            {selectedImages.length > 0 && (
+              <p className="text-xs text-gray-400">
+                💡 Tip: Mention slide numbers in your prompt (e.g., "use this image on slide 3")
+              </p>
+            )}
+          </div>
+
+          {/* 5. PPT Modes Button (Below Chat Input) */}
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setShowPPTModes(!showPPTModes)}
+              className="flex justify-center items-center gap-1 text-sm cursor-pointer bg-[#DAA520] text-black px-4 py-2 rounded hover:bg-[#B8860B] transition"
+            >
+              <PiFilePptBold /> PPT Modes
+            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={handleAskCopilot}
+                disabled={loading || !prompt.trim()}
+                className="flex items-center gap-2 px-4 py-2 rounded bg-[#DAA520] text-black font-semibold hover:bg-[#B8860B] transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <PiPaperPlaneTiltBold /> {loading ? "Generating..." : "Generate PPT"}
+              </button>
+              <button
+                onClick={handleList}
+                className="px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 hover:bg-gray-600 transition"
+              >
+                View Previous PPTs
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* PPT Modes Modal */}
+        {showPPTModes && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={() => setShowPPTModes(false)}>
+            <div className="bg-gray-800 rounded-lg border border-gray-700 w-full max-w-2xl max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="sticky top-0 bg-gray-800 border-b border-gray-700 p-4 flex items-center justify-between">
+                <h2 className="text-xl font-bold text-white">Select PPT Mode</h2>
+                <button
+                  onClick={() => setShowPPTModes(false)}
+                  className="text-gray-400 hover:text-white transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-4 space-y-3">
+                <button
+                  onClick={() => insertPPTTemplate(pptModeTemplates.mode1)}
+                  className="w-full text-left p-4 bg-gray-700 hover:bg-gray-600 rounded-lg transition border border-gray-600 hover:border-[#DAA520]"
+                >
+                  <div className="font-semibold text-white mb-1">Mode 1: Quick Auto PPT</div>
+                  <div className="text-sm text-gray-300">
+                    Automatically generates PPT with default structure. Just provide topic, subject, and number of slides.
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => insertPPTTemplate(pptModeTemplates.mode2)}
+                  className="w-full text-left p-4 bg-gray-700 hover:bg-gray-600 rounded-lg transition border border-gray-600 hover:border-[#DAA520]"
+                >
+                  <div className="font-semibold text-white mb-1">Mode 2: Custom Slide Titles</div>
+                  <div className="text-sm text-gray-300">
+                    Specify your own slide titles. The system will generate content for each slide based on its title.
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => insertPPTTemplate(pptModeTemplates.mode3)}
+                  className="w-full text-left p-4 bg-gray-700 hover:bg-gray-600 rounded-lg transition border border-gray-600 hover:border-[#DAA520]"
+                >
+                  <div className="font-semibold text-white mb-1">Mode 3: Exact Slide Content (Strict)</div>
+                  <div className="text-sm text-gray-300">
+                    Provide exact bullet points for each slide. The system will use your content word-for-word without modification.
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => insertPPTTemplate(pptModeTemplates.mode4)}
+                  className="w-full text-left p-4 bg-gray-700 hover:bg-gray-600 rounded-lg transition border border-gray-600 hover:border-[#DAA520]"
+                >
+                  <div className="font-semibold text-white mb-1">Mode 4: Image-Controlled Slides</div>
+                  <div className="text-sm text-gray-300">
+                    Specify slide structure and assign uploaded images to specific slides. Content will be generated automatically.
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => insertPPTTemplate(pptModeTemplates.mode5)}
+                  className="w-full text-left p-4 bg-gray-700 hover:bg-gray-600 rounded-lg transition border border-gray-600 hover:border-[#DAA520]"
+                >
+                  <div className="font-semibold text-white mb-1">Mode 5: Mixed Instructions (Per Slide)</div>
+                  <div className="text-sm text-gray-300">
+                    Mix and match: specify exact content for some slides, generate content for others, and assign images per slide.
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Error and Result Messages */}
+        {error && (
+          <div className="mt-4 text-sm text-red-400 border border-red-500/40 bg-red-500/10 rounded p-2">
+            {error}
+          </div>
+        )}
+        {result && (
+          <div className="mt-4 text-sm text-gray-100 border border-gray-700 rounded p-3 bg-gray-800">
+            <div>{result.text}</div>
+            {result.link && (
+              <div className="mt-2">
+                <Link
+                  href={result.link}
+                  target="_blank"
+                  className="text-[#DAA520] underline"
+                >
+                  {result.filename ? `Download ${result.filename}` : "Download"}
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Previous Presentations List */}
       {presentations.length > 0 && (
         <div className="bg-gray-800 rounded-lg p-6">
           <h2 className="text-2xl font-bold mb-4 text-[#DAA520]">Previous Presentations</h2>
@@ -207,7 +432,10 @@ export default function PPTGenerator() {
                   <div className="font-semibold">{p.filename}</div>
                   <div className="text-sm text-gray-300">Slides: {p.num_slides} • {new Date(p.created_at).toLocaleString()}</div>
                 </div>
-                <button onClick={() => handleDownload(p.filename)} className="px-4 py-2 bg-[#DAA520] text-black rounded hover:bg-[#B8860B]">
+                <button 
+                  onClick={() => handleDownload(p.filename)} 
+                  className="px-4 py-2 bg-[#DAA520] text-black rounded hover:bg-[#B8860B] transition"
+                >
                   Download
                 </button>
               </div>
