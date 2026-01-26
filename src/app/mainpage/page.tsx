@@ -4,9 +4,8 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
-import TextArea from "@/components/textarea";
 import Sidebar from "@/components/sidebar";
-import { Menu } from "lucide-react";
+import { Menu, FileText, Presentation, FileQuestion } from "lucide-react";
 
 const MainPage = () => {
   const router = useRouter();
@@ -85,10 +84,45 @@ const MainPage = () => {
             </h1>
             <h1 className="text-3xl font-bold text-gray-300">How can I assist you today?</h1>
           </div>
-          <TextArea />
+          
+          {/* Quick Actions */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl">
+            <button
+              onClick={() => router.push('/lab-manual-generator')}
+              className="flex flex-col items-center gap-4 p-8 bg-gray-800 rounded-xl border-2 border-gray-700 hover:border-[#DAA520] hover:bg-gray-750 transition-all group shadow-lg hover:shadow-xl"
+            >
+              <div className="w-16 h-16 bg-[#DAA520] rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-md">
+                <FileText className="w-8 h-8 text-black" />
+              </div>
+              <span className="font-bold text-lg text-white">Lab Manual Generator</span>
+              <span className="text-sm text-gray-400 text-center">Generate lab manuals from PDF</span>
+            </button>
+            
+            <button
+              onClick={() => router.push('/ppt-generator')}
+              className="flex flex-col items-center gap-4 p-8 bg-gray-800 rounded-xl border-2 border-gray-700 hover:border-[#DAA520] hover:bg-gray-750 transition-all group shadow-lg hover:shadow-xl"
+            >
+              <div className="w-16 h-16 bg-[#DAA520] rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-md">
+                <Presentation className="w-8 h-8 text-black" />
+              </div>
+              <span className="font-bold text-lg text-white">PPT Generator</span>
+              <span className="text-sm text-gray-400 text-center">Create presentations</span>
+            </button>
+            
+            <button
+              onClick={() => router.push('/question-paper')}
+              className="flex flex-col items-center gap-4 p-8 bg-gray-800 rounded-xl border-2 border-gray-700 hover:border-[#DAA520] hover:bg-gray-750 transition-all group shadow-lg hover:shadow-xl"
+            >
+              <div className="w-16 h-16 bg-[#DAA520] rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-md">
+                <FileQuestion className="w-8 h-8 text-black" />
+              </div>
+              <span className="font-bold text-lg text-white">Question Paper</span>
+              <span className="text-sm text-gray-400 text-center">Generate question papers</span>
+            </button>
+          </div>
         </div>
       </div>
-      </div>
+    </div>
   );
 };
 

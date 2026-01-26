@@ -1,19 +1,22 @@
-import google.generativeai as genai
 import os
 import json
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Configure Gemini
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+from google import genai
+
+API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+if not API_KEY:
+    raise RuntimeError("GEMINI_API_KEY not set")
 
 class ContentAnalyzer:
     """Simple content analyzer using Gemini AI"""
     
     def __init__(self):
-        # Use gemini-pro-latest (it's working!)
-        self.model = genai.GenerativeModel('gemini-pro-latest')
+        self.client = genai.Client(api_key=API_KEY)
+        # IMPORTANT: gemini-pro-latest can map to gemini-2.5-pro (free tier quota may be 0).
+        self.model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     
     def analyze_content(self, content: str, document_type: str = "text") -> dict:
         """Analyze content and extract key information"""
@@ -36,8 +39,11 @@ class ContentAnalyzer:
             Return ONLY valid JSON.
             """
             
-            response = self.model.generate_content(prompt)
-            result_text = response.text
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt,
+            )
+            result_text = getattr(response, "text", "") or ""
             
             # Try to extract JSON from the response
             try:

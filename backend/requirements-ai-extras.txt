@@ -1,0 +1,14 @@
+# Optional / Experimental AI dependencies
+#
+# Install ONLY if you explicitly use the CrewAI-based modules in `backend/crewAI/`.
+# These dependencies are intentionally separated to avoid pip resolver conflicts
+# and huge transitive installs when they are not needed.
+#
+# Usage:
+#   pip install -r requirements.txt -r requirements-ai-extras.txt
+#
+sentence-transformers>=2.2.2,<3.0.0
+crewai==0.28.8
+crewai-tools==0.1.6
+embedchain>=0.1.98,<0.1.103
+

@@ -9,7 +9,10 @@ sys.path.insert(0, str(backend_dir))
 from database.connection import engine, Base, SessionLocal
 from database.models import (
     User, Document, Presentation, QuestionPaper, Question,
-    CalendarEvent, Task
+    CalendarEvent, Task, SimpleTodo, Subject, ContinuousAssessment,
+    LabManual, FDP, Lecture, Certification, CurrentProject, ResearchProposal,
+    Teacher, DepartmentSemester, AttendanceClass, AttendanceSubject,
+    AttendanceStudent, AttendanceSession, AttendanceRecord
 )
 import json
 from datetime import datetime

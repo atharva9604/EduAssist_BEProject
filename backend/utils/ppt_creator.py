@@ -3,6 +3,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
+import os
 from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.enum.text import PP_ALIGN
@@ -87,6 +88,18 @@ class PPTCreator:
             subtitle_run.font.size = Pt(24)
             subtitle_run.font.color.rgb = RGBColor(68, 114, 196)  # Lighter blue
         
+        # Add speaker notes if available
+        speaker_notes = slide_data.get("speaker_notes", "")
+        if speaker_notes:
+            try:
+                notes_slide = slide.notes_slide
+                notes_text_frame = notes_slide.notes_text_frame
+                notes_text_frame.text = speaker_notes
+                for paragraph in notes_text_frame.paragraphs:
+                    paragraph.font.size = Pt(12)
+            except Exception as e:
+                print(f"Warning: Could not add speaker notes to title slide: {e}")
+        
         # Add decorative element
         self._add_decorative_shape(slide)
     
@@ -123,6 +136,52 @@ class PPTCreator:
             p.level = 0
             p.font.size = Pt(20)
             p.font.color.rgb = RGBColor(68, 68, 68)
+
+        # Add image if provided
+        # MODE 5 IMAGE LOCK: Skip slides that explicitly forbid images
+        slide_num = slide_data.get('slide_number', 0)
+        if slide_data.get("_mode_5_image_mode") == "NONE" or slide_data.get("_no_image"):
+            print(f"🚫 MODE 5 IMAGE LOCK: No image added to slide {slide_num} (No image declared)")
+            # Remove any image_path that might have been set incorrectly
+            if slide_data.get("image_path"):
+                del slide_data["image_path"]
+        else:
+            image_path = slide_data.get("image_path")
+            if image_path:
+                # Convert to absolute path if relative
+                abs_image_path = os.path.abspath(image_path) if not os.path.isabs(image_path) else image_path
+                if os.path.exists(abs_image_path):
+                    try:
+                        print(f"📷 Adding image to slide {slide_data.get('slide_number')}: {abs_image_path}")
+                        slide.shapes.add_picture(
+                            abs_image_path,
+                            left=Inches(8.0),
+                            top=Inches(2.0),
+                            width=Inches(4.5)
+                        )
+                        print(f"✓ Image added successfully to slide {slide_data.get('slide_number')}")
+                    except Exception as e:
+                        print(f"❌ Warning: Could not add image {abs_image_path}: {e}")
+                        import traceback
+                        traceback.print_exc()
+                else:
+                    print(f"⚠ Image path does not exist: {abs_image_path}")
+                    print(f"  Current directory: {os.getcwd()}")
+                    print(f"  Original path: {image_path}")
+
+        # Add speaker notes if available
+        speaker_notes = slide_data.get("speaker_notes", "")
+        if speaker_notes:
+            try:
+                notes_slide = slide.notes_slide
+                notes_text_frame = notes_slide.notes_text_frame
+                notes_text_frame.text = speaker_notes
+                # Format speaker notes
+                for paragraph in notes_text_frame.paragraphs:
+                    paragraph.font.size = Pt(12)
+                    paragraph.font.color.rgb = RGBColor(0, 0, 0)
+            except Exception as e:
+                print(f"Warning: Could not add speaker notes: {e}")
         
         # Visual suggestions removed - images not implemented yet
     
@@ -160,6 +219,19 @@ class PPTCreator:
             p.font.size = Pt(22)
             p.font.bold = True
             p.font.color.rgb = RGBColor(31, 73, 125)
+        
+        # Add speaker notes if available
+        speaker_notes = slide_data.get("speaker_notes", "")
+        if speaker_notes:
+            try:
+                notes_slide = slide.notes_slide
+                notes_text_frame = notes_slide.notes_text_frame
+                notes_text_frame.text = speaker_notes
+                for paragraph in notes_text_frame.paragraphs:
+                    paragraph.font.size = Pt(12)
+                    paragraph.font.color.rgb = RGBColor(0, 0, 0)
+            except Exception as e:
+                print(f"Warning: Could not add speaker notes to summary slide: {e}")
     
     def _add_decorative_shape(self, slide):
         """Add a decorative shape to the slide"""
@@ -231,4 +303,3 @@ class PPTCreator:
             print(f"Error listing presentations: {e}")
         
         return sorted(presentations, key=lambda x: x["created_at"], reverse=True)
-

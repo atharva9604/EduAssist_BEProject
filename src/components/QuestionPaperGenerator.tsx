@@ -1,8 +1,8 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Upload } from 'lucide-react';
-import { generateQuestionPaper, QuestionPaperResponse } from '@/services/questionPaperService';
+import { Upload, Download } from 'lucide-react';
+import { generateQuestionPaper, downloadQuestionPaperPdf, QuestionPaperResponse } from '@/services/questionPaperService';
 
 export default function QuestionPaperGenerator() {
   const [content, setContent] = useState('');
@@ -62,9 +62,18 @@ export default function QuestionPaperGenerator() {
         marks_short: 3,
         marks_long: 5,
         difficulty: 'medium'
-      });
+      }, true); // Generate PDF
   
       setResult(response);
+      
+      // Auto-download PDF if available
+      if (response.pdf_filename) {
+        try {
+          await downloadQuestionPaperPdf(response.pdf_filename);
+        } catch (err) {
+          console.error('Failed to auto-download PDF:', err);
+        }
+      }
     } catch (err) {
       setError('Failed to generate question paper. Please try again.');
       console.error(err);
@@ -247,9 +256,28 @@ export default function QuestionPaperGenerator() {
 
           {/* Summary */}
           <div className="bg-gray-700 rounded-lg p-4 mb-6">
-            <h3 className="font-semibold mb-2">Summary</h3>
-            <p>Total Marks: <span className="font-bold">{result.total_marks}</span></p>
-            <p>MCQs: {result.summary.total_mcqs} | Short: {result.summary.total_short} | Long: {result.summary.total_long}</p>
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="font-semibold mb-2">Summary</h3>
+                <p>Total Marks: <span className="font-bold">{result.total_marks}</span></p>
+                <p>MCQs: {result.summary.total_mcqs} | Short: {result.summary.total_short} | Long: {result.summary.total_long}</p>
+              </div>
+              {result.pdf_filename && (
+                <button
+                  onClick={async () => {
+                    try {
+                      await downloadQuestionPaperPdf(result.pdf_filename!);
+                    } catch (err: any) {
+                      alert(`Failed to download PDF: ${err.message}`);
+                    }
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#DAA520] text-black rounded-lg font-semibold hover:bg-[#B8860B] transition"
+                >
+                  <Download className="w-4 h-4" />
+                  Download PDF
+                </button>
+              )}
+            </div>
           </div>
 
           {/* MCQ Questions */}

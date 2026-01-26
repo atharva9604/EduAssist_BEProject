@@ -9,6 +9,12 @@ from .calendar_event import CalendarEvent
 from .task import Task
 from .simple_todo import SimpleTodo
 from .subject import Subject
+from .academics import ContinuousAssessment, LabManual
+from .research import FDP, Lecture, Certification, CurrentProject, ResearchProposal
+from .attendance import (
+    Teacher, DepartmentSemester, AttendanceClass, AttendanceSubject,
+    AttendanceStudent, AttendanceSession, AttendanceRecord
+)
 
 
 __all__ = [
@@ -22,5 +28,19 @@ __all__ = [
     "CalendarEvent",
     "Task",
     "SimpleTodo",
-    "Subject"
+    "Subject",
+    "ContinuousAssessment",
+    "LabManual",
+    "FDP",
+    "Lecture",
+    "Certification",
+    "CurrentProject",
+    "ResearchProposal",
+    "Teacher",
+    "DepartmentSemester",
+    "AttendanceClass",
+    "AttendanceSubject",
+    "AttendanceStudent",
+    "AttendanceSession",
+    "AttendanceRecord"
 ]

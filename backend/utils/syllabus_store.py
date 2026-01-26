@@ -99,8 +99,3 @@ def retrieve_topic_context(topic: str, module: Optional[str], subject: Optional[
         buffer += addition
 
     return buffer.strip() or None
-
-
-
-
-
