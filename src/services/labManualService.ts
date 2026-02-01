@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
+const API_BASE = 'https://eduassist.onrender.com';
 
 export interface LabManualResponse {
   id: string;
@@ -49,7 +49,7 @@ export async function generateLabManualFromPdf(
       filename = filenameMatch[1];
     }
   }
-  
+
   // Ensure filename has .pdf extension
   if (!filename.endsWith('.pdf')) {
     filename = filename.replace(/\.(docx|doc)$/, '.pdf');
@@ -112,7 +112,7 @@ export async function downloadLabManual(manualId: number): Promise<void> {
       filename = filenameMatch[1];
     }
   }
-  
+
   // Ensure filename has .pdf extension
   if (!filename.endsWith('.pdf')) {
     filename = filename.replace(/\.(docx|doc)$/, '.pdf');

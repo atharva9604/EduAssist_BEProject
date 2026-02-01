@@ -6,7 +6,7 @@ import { PiFilePptBold, PiPaperPlaneTiltBold } from "react-icons/pi";
 import { X } from "lucide-react";
 import Link from "next/link";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+const API_BASE = "https://eduassist.onrender.com";
 
 type AssistResult = {
   text: string;
@@ -29,8 +29,8 @@ export default function PPTGenerator() {
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    const imageFiles = files.filter(file => 
-      file.type.startsWith('image/') && 
+    const imageFiles = files.filter(file =>
+      file.type.startsWith('image/') &&
       ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)
     );
     setSelectedImages(prev => [...prev, ...imageFiles]);
@@ -172,14 +172,14 @@ No image.`
     setLoading(true);
     try {
       let res;
-      
+
       if (selectedImages.length > 0) {
         const formData = new FormData();
         formData.append('prompt', prompt);
         selectedImages.forEach((img) => {
           formData.append('images', img);
         });
-        
+
         res = await fetch(`${API_BASE}/api/assist`, {
           method: "POST",
           body: formData,
@@ -191,19 +191,19 @@ No image.`
           body: JSON.stringify({ prompt }),
         });
       }
-      
+
       if (!res.ok) {
         const detail = await res.text();
         throw new Error(detail || "Request failed");
       }
-      
+
       const data = await res.json();
       const link =
         data.link && data.link.startsWith("http")
           ? data.link
           : data.link
-          ? `${API_BASE}${data.link}`
-          : undefined;
+            ? `${API_BASE}${data.link}`
+            : undefined;
       setResult({
         text: data.message || "Done.",
         link,
@@ -242,14 +242,13 @@ No image.`
             {uploading ? 'Uploading…' : 'Upload'}
           </button>
         </div>
-        
+
         {/* 3. Upload Status Message */}
         {uploadStatus.type && (
-          <div className={`mt-3 text-sm ${
-            uploadStatus.type === 'success' 
-              ? 'text-green-400' 
-              : 'text-red-400'
-          }`}>
+          <div className={`mt-3 text-sm ${uploadStatus.type === 'success'
+            ? 'text-green-400'
+            : 'text-red-400'
+            }`}>
             {uploadStatus.message}
           </div>
         )}
@@ -258,14 +257,14 @@ No image.`
       {/* 4. Chat Box (Same as Chat Page) */}
       <div className="bg-gray-900 rounded-lg p-6 mb-6 border border-gray-800">
         <div className="space-y-4">
-          <textarea 
+          <textarea
             className="w-full h-60 p-5 border border-gray-600 rounded-lg bg-gray-800 text-white placeholder-gray-400 focus:border-[#DAA520] focus:outline-none resize-none"
             placeholder="Type your PPT request here... (e.g., 'Create a 5-slide PPT on Photosynthesis. Subject: Biology')"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             disabled={loading}
           />
-          
+
           {/* Image upload section */}
           <div className="space-y-2">
             <label className="block text-sm text-gray-300">
@@ -432,8 +431,8 @@ No image.`
                   <div className="font-semibold">{p.filename}</div>
                   <div className="text-sm text-gray-300">Slides: {p.num_slides} • {new Date(p.created_at).toLocaleString()}</div>
                 </div>
-                <button 
-                  onClick={() => handleDownload(p.filename)} 
+                <button
+                  onClick={() => handleDownload(p.filename)}
                   className="px-4 py-2 bg-[#DAA520] text-black rounded hover:bg-[#B8860B] transition"
                 >
                   Download

@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
+const API_BASE = 'https://eduassist.onrender.com';
 
 // Academics Types
 export interface ContinuousAssessment {
@@ -136,7 +136,7 @@ export async function getCertifications(): Promise<{ certifications: Certificati
 export async function uploadCertificate(file: File): Promise<{ success: boolean; path: string; filename: string }> {
   const form = new FormData();
   form.append('file', file);
-  
+
   const res = await fetch(`${API_BASE}/api/upload-certificate`, {
     method: 'POST',
     body: form,

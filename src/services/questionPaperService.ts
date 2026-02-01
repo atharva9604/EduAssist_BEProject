@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = 'https://eduassist.onrender.com';
 
 export interface QuestionPaperRequest {
   content: string;
@@ -49,10 +49,10 @@ export const generateQuestionPaper = async (
   generatePdf: boolean = false
 ): Promise<QuestionPaperResponse> => {
   try {
-    const endpoint = generatePdf 
-      ? '/api/generate-question-paper-pdf' 
+    const endpoint = generatePdf
+      ? '/api/generate-question-paper-pdf'
       : '/api/generate-question-paper';
-    
+
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
       headers: {
@@ -76,14 +76,14 @@ export const generateQuestionPaper = async (
 export const downloadQuestionPaperPdf = async (filename: string): Promise<void> => {
   try {
     const response = await fetch(`${API_BASE_URL}/api/download-question-paper/${encodeURIComponent(filename)}`);
-    
+
     if (!response.ok) {
       throw new Error('Failed to download PDF');
     }
 
     // Get the blob
     const blob = await response.blob();
-    
+
     // Create download link
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -91,7 +91,7 @@ export const downloadQuestionPaperPdf = async (filename: string): Promise<void> 
     a.download = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
     document.body.appendChild(a);
     a.click();
-    
+
     // Cleanup
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);

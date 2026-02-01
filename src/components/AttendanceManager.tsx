@@ -14,22 +14,22 @@ export default function AttendanceManager() {
 
   const handleSendCommand = async () => {
     if (!message.trim()) return;
-    
+
     setLoading(true);
     setResponse(null);
     setSummary(null);
-    
+
     try {
       const result = await sendAttendanceCommand(message);
       setResponse(result);
-      
+
       // If it's a summary response, extract the summary data
       if (result.summary) {
         setSummary(result.summary);
       } else if (result.tool === "summary" && result.summary) {
         setSummary(result.summary);
       }
-      
+
       // Clear message on success
       if (!result.error && !result.ask) {
         setMessage("");
@@ -46,7 +46,7 @@ export default function AttendanceManager() {
       alert("Please select a file");
       return;
     }
-    
+
     setUploading(true);
     try {
       const result = await uploadRoster(uploadFile, parseInt(classId));
@@ -190,11 +190,11 @@ export default function AttendanceManager() {
                         // Try to extract from file_path or use subject 1 as default
                         const subjectIdMatch = response.file_path?.match(/subject_(\d+)/);
                         const subjectId = subjectIdMatch ? parseInt(subjectIdMatch[1]) : 1;
-                        
+
                         // Direct download - trigger immediately from user click
-                        const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
+                        const API_BASE = 'https://eduassist.onrender.com';
                         const downloadUrl = `${API_BASE}/api/attendance/export-csv/${subjectId}`;
-                        
+
                         const a = document.createElement("a");
                         a.href = downloadUrl;
                         a.download = `attendance_summary_subject_${subjectId}.csv`;
@@ -229,9 +229,9 @@ export default function AttendanceManager() {
               onClick={(e) => {
                 e.preventDefault();
                 // Direct download - must be synchronous with user click
-                const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
+                const API_BASE = 'https://eduassist.onrender.com';
                 const downloadUrl = `${API_BASE}/api/attendance/export-csv/1`;
-                
+
                 const a = document.createElement("a");
                 a.href = downloadUrl;
                 a.download = `attendance_summary_subject_1.csv`;
@@ -241,7 +241,7 @@ export default function AttendanceManager() {
                 setTimeout(() => {
                   document.body.removeChild(a);
                 }, 100);
-                
+
                 // Optionally generate CSV in background (non-blocking)
                 sendAttendanceCommand(`Export CSV for subject 1`).then((result) => {
                   setResponse(result);
@@ -274,11 +274,10 @@ export default function AttendanceManager() {
                     <td className="py-3 px-4 text-center text-gray-300">{item.present}</td>
                     <td className="py-3 px-4 text-center text-gray-300">{item.total}</td>
                     <td className="py-3 px-4 text-center">
-                      <span className={`font-semibold ${
-                        item.percentage >= 75 ? "text-green-400" :
+                      <span className={`font-semibold ${item.percentage >= 75 ? "text-green-400" :
                         item.percentage >= 50 ? "text-yellow-400" :
-                        "text-red-400"
-                      }`}>
+                          "text-red-400"
+                        }`}>
                         {item.percentage.toFixed(1)}%
                       </span>
                     </td>

@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { motion } from "framer-motion";
-import { X,UserRound, Calendar, ListTodo, BookOpen, Clock, Menu } from "lucide-react";
+import { X, UserRound, Calendar, ListTodo, BookOpen, Clock, Menu } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -25,7 +25,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "edit">("overview");
-  const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+  const API_BASE = "https://eduassist.onrender.com";
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarActiveTab, setSidebarActiveTab] = useState("home");
@@ -107,7 +107,10 @@ export default function DashboardPage() {
 
   const refreshEventsFromBackend = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/events`);
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch(`${API_BASE}/api/events`, {
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+      });
       if (!res.ok) return;
       const data = await res.json();
       setEventsFull(data.events || []);
@@ -146,27 +149,27 @@ export default function DashboardPage() {
       setSemesterSyncMsg("Please choose a CSV file.");
       return;
     }
-    if(!semesterStartDate || !semesterEndDate){
+    if (!semesterStartDate || !semesterEndDate) {
       setSemesterSyncMsg("Please select start and end date.");
       return;
     }
-    if(semesterStartDate>semesterEndDate){
+    if (semesterStartDate > semesterEndDate) {
       setSemesterSyncMsg("Please select valid start date.");
       return;
     }
     setSyncingSemester(true);
     setSemesterSyncMsg("");
     try {
-      const res = await uploadTimetableFull(csvFile,semesterStartDate,semesterEndDate);
+      const res = await uploadTimetableFull(csvFile, semesterStartDate, semesterEndDate);
       setSemesterSyncMsg(`Semester sync complete! Imported ${res.inserted} events. Total: ${res.total_events}.`);
       await refreshEventsFromBackend();
       await fetchTodayOverview();
-      setTimeout(()=>{
+      setTimeout(() => {
         setShowSemesterModal(false);
         setSemesterSyncMsg("");
         setSemesterStartDate("");
         setSemesterEndDate("");
-      },2000);
+      }, 2000);
     } catch (e: any) {
       setSemesterSyncMsg(e?.message || "Semester sync failed.");
     } finally {
@@ -176,7 +179,10 @@ export default function DashboardPage() {
 
   const fetchTodayOverview = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/today-overview`);
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch(`${API_BASE}/api/today-overview`, {
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+      });
       if (!res.ok) return;
       const data = await res.json();
       setTodayEvents(data.events || []);
@@ -188,7 +194,10 @@ export default function DashboardPage() {
 
   const loadSubjects = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/subjects`);
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch(`${API_BASE}/api/subjects`, {
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+      });
       if (!res.ok) return;
       const data = await res.json();
       setSubjects(data.subjects || []);
@@ -199,7 +208,10 @@ export default function DashboardPage() {
 
   const loadTodos = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/simple-todos`);
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch(`${API_BASE}/api/simple-todos`, {
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+      });
       if (!res.ok) return;
       const data = await res.json();
       setTodos(data.todos || []);
@@ -272,17 +284,15 @@ export default function DashboardPage() {
             <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-full p-1">
               <button
                 onClick={() => setActiveTab("overview")}
-                className={`px-4 py-2 rounded-full text-sm transition ${
-                  activeTab === "overview" ? "bg-[#DAA520] text-black" : "text-gray-300 hover:text-white"
-                }`}
+                className={`px-4 py-2 rounded-full text-sm transition ${activeTab === "overview" ? "bg-[#DAA520] text-black" : "text-gray-300 hover:text-white"
+                  }`}
               >
                 Overview
               </button>
               <button
                 onClick={() => setActiveTab("edit")}
-                className={`px-4 py-2 rounded-full text-sm transition ${
-                  activeTab === "edit" ? "bg-[#DAA520] text-black" : "text-gray-300 hover:text-white"
-                }`}
+                className={`px-4 py-2 rounded-full text-sm transition ${activeTab === "edit" ? "bg-[#DAA520] text-black" : "text-gray-300 hover:text-white"
+                  }`}
               >
                 Edit
               </button>
@@ -350,7 +360,7 @@ export default function DashboardPage() {
                       {uploading ? "Uploading…" : "Upload"}
                     </button>
                     <button
-                      onClick={()=>setShowSemesterModal(true)}
+                      onClick={() => setShowSemesterModal(true)}
                       disabled={uploading || !csvFile}
                       className="px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 hover:bg-gray-600 transition disabled:opacity-50"
                     >
@@ -368,13 +378,13 @@ export default function DashboardPage() {
                         <h3 className="text-xl font-semibold text-[#DAA520]">
                           Submit
                         </h3>
-                        <button onClick={()=>{
+                        <button onClick={() => {
                           setShowSemesterModal(false);
                           setSemesterSyncMsg("");
                           setSemesterStartDate("");
                           setSemesterEndDate("");
                         }}
-                        className="text-gray-400 hover:text-white transition"
+                          className="text-gray-400 hover:text-white transition"
                         >
                           <X className="h-6 w-6" />
                         </button>
@@ -385,47 +395,46 @@ export default function DashboardPage() {
                             Semester Start Date
                           </label>
                           <div className="relative">
-                          <input type="date" value={semesterStartDate} onChange={(e)=> setSemesterStartDate(e.target.value)} className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#DAA520]" required 
-                          onClick={(e)=> e.currentTarget.showPicker?.()}
-                          />
-                          <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
-    
+                            <input type="date" value={semesterStartDate} onChange={(e) => setSemesterStartDate(e.target.value)} className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#DAA520]" required
+                              onClick={(e) => e.currentTarget.showPicker?.()}
+                            />
+                            <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
+
                           </div>
                         </div>
                         <div>
-    <label className="block text-sm font-medium text-gray-300 mb-2">
-      Semester End Date *
-    </label>
-    <div className="relative">
-      <input 
-        type="date" 
-        value={semesterEndDate} 
-        onChange={(e) => setSemesterEndDate(e.target.value)} 
-        className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#DAA520] cursor-pointer" 
-        required
-        onClick={(e) => e.currentTarget.showPicker?.()}  // Force calendar to open
-      />
-      <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
-    </div>
-  </div>
+                          <label className="block text-sm font-medium text-gray-300 mb-2">
+                            Semester End Date *
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="date"
+                              value={semesterEndDate}
+                              onChange={(e) => setSemesterEndDate(e.target.value)}
+                              className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#DAA520] cursor-pointer"
+                              required
+                              onClick={(e) => e.currentTarget.showPicker?.()}  // Force calendar to open
+                            />
+                            <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
+                          </div>
+                        </div>
                         {semesterSyncMsg && (
-                          <div className={`p-3 rounded-lg text-sm ${
-                            semesterSyncMsg.includes("complete") || semesterSyncMsg.includes("Imported") ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"
-                          }`}>
+                          <div className={`p-3 rounded-lg text-sm ${semesterSyncMsg.includes("complete") || semesterSyncMsg.includes("Imported") ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"
+                            }`}>
                             {semesterSyncMsg}
                           </div>
                         )}
                       </div>
                       <div className="flex justify-end gap-2 pt-4">
-                        <button onClick={()=>{
+                        <button onClick={() => {
                           setShowSemesterModal(false);
                           setSemesterSyncMsg("");
                           setSemesterStartDate("");
                           setSemesterEndDate("");
                         }} className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-200 hover:bg-white/10 transition">Cancel</button>
                         <button onClick={handleUploadCsvFull}
-                        disabled={syncingSemester || !semesterStartDate || !semesterEndDate}
-                        className="px-4 py-2 rounded-lg bg-[#DAA520] text-black font-semibold shadow-[0_0_25px_rgba(218,165,32,0.25)] hover:bg-[#B8860B] transition disabled:opacity-50"
+                          disabled={syncingSemester || !semesterStartDate || !semesterEndDate}
+                          className="px-4 py-2 rounded-lg bg-[#DAA520] text-black font-semibold shadow-[0_0_25px_rgba(218,165,32,0.25)] hover:bg-[#B8860B] transition disabled:opacity-50"
                         >
                           {syncingSemester ? "Syncing…" : "Sync"}
                         </button>
@@ -433,17 +442,17 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 )}
-                
+
                 <div className="rounded-2xl bg-white/5 border border-white/10 p-5">
                   <h2 className="text-sm uppercase tracking-wider text-gray-400 mb-3">Calendar </h2>
                   <AdvancedCalendar
-                      events={rbcEvents}
-                      onCreateEvent={(ev) =>
-                        setEvents((prev) => [
-                          ...prev,
-                          { id: ev.id, title: ev.title, date: ev.start.toISOString().slice(0, 10) },
-                        ])
-                      }
+                    events={rbcEvents}
+                    onCreateEvent={(ev) =>
+                      setEvents((prev) => [
+                        ...prev,
+                        { id: ev.id, title: ev.title, date: ev.start.toISOString().slice(0, 10) },
+                      ])
+                    }
                   />
                 </div>
 
@@ -457,7 +466,10 @@ export default function DashboardPage() {
                       try {
                         const res = await fetch(`${API_BASE}/api/subjects`, {
                           method: "POST",
-                          headers: { "Content-Type": "application/json" },
+                          headers: {
+                            "Content-Type": "application/json",
+                            ...(auth.currentUser ? { Authorization: `Bearer ${await auth.currentUser.getIdToken()}` } : {})
+                          },
                           body: JSON.stringify(s),
                         });
                         if (res.ok) {
@@ -472,6 +484,9 @@ export default function DashboardPage() {
                       try {
                         const res = await fetch(`${API_BASE}/api/subjects/${id}`, {
                           method: "DELETE",
+                          headers: {
+                            ...(auth.currentUser ? { Authorization: `Bearer ${await auth.currentUser.getIdToken()}` } : {})
+                          }
                         });
                         if (res.ok) {
                           setSubjects((p) => p.filter((x) => x.id !== id));
@@ -490,7 +505,10 @@ export default function DashboardPage() {
                       try {
                         const res = await fetch(`${API_BASE}/api/simple-todos`, {
                           method: "POST",
-                          headers: { "Content-Type": "application/json" },
+                          headers: {
+                            "Content-Type": "application/json",
+                            ...(auth.currentUser ? { Authorization: `Bearer ${await auth.currentUser.getIdToken()}` } : {})
+                          },
                           body: JSON.stringify(t),
                         });
                         if (res.ok) {
@@ -507,7 +525,10 @@ export default function DashboardPage() {
                         if (!todo) return;
                         const res = await fetch(`${API_BASE}/api/simple-todos/${id}`, {
                           method: "PUT",
-                          headers: { "Content-Type": "application/json" },
+                          headers: {
+                            "Content-Type": "application/json",
+                            ...(auth.currentUser ? { Authorization: `Bearer ${await auth.currentUser.getIdToken()}` } : {})
+                          },
                           body: JSON.stringify({ ...todo, done: !todo.done }),
                         });
                         if (res.ok) {
@@ -521,6 +542,9 @@ export default function DashboardPage() {
                       try {
                         const res = await fetch(`${API_BASE}/api/simple-todos/${id}`, {
                           method: "DELETE",
+                          headers: {
+                            ...(auth.currentUser ? { Authorization: `Bearer ${await auth.currentUser.getIdToken()}` } : {})
+                          }
                         });
                         if (res.ok) {
                           setTodos((p) => p.filter((t) => t.id !== id));
@@ -637,9 +661,8 @@ export default function DashboardPage() {
                             {t.text}
                           </span>
                           <span
-                            className={`text-[10px] px-2 py-0.5 rounded-full ${
-                              t.done ? "bg-emerald-500/20 text-emerald-300" : "bg-yellow-500/20 text-yellow-300"
-                            }`}
+                            className={`text-[10px] px-2 py-0.5 rounded-full ${t.done ? "bg-emerald-500/20 text-emerald-300" : "bg-yellow-500/20 text-yellow-300"
+                              }`}
                           >
                             {t.done ? "Done" : "Pending"}
                           </span>

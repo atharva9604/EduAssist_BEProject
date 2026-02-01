@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
+const API_BASE = 'https://eduassist.onrender.com';
 
 export interface AttendanceSummary {
   roll_no: number;
@@ -40,7 +40,7 @@ export async function sendAttendanceCommand(message: string): Promise<Attendance
 export async function uploadRoster(file: File, classId: number): Promise<{ filename: string; rows_inserted: number; status: string }> {
   const form = new FormData();
   form.append('file', file);
-  
+
   const res = await fetch(`${API_BASE}/api/attendance/upload-roster?class_id=${classId}`, {
     method: 'POST',
     body: form,
@@ -64,17 +64,17 @@ export async function downloadAttendanceCsv(subjectId: number): Promise<void> {
 
   // Use direct URL approach - browsers allow this from user-initiated clicks
   const downloadUrl = `${API_BASE}/api/attendance/export-csv/${subjectId}`;
-  
+
   // Create a temporary link and trigger download
   const a = document.createElement("a");
   a.href = downloadUrl;
   a.download = `attendance_summary_subject_${subjectId}.csv`;
   a.style.display = "none";
   document.body.appendChild(a);
-  
+
   // Trigger click - this must be synchronous with user action
   a.click();
-  
+
   // Clean up after a short delay
   setTimeout(() => {
     document.body.removeChild(a);
