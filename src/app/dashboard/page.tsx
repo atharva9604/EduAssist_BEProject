@@ -25,7 +25,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "edit">("overview");
-  const API_BASE = "https://eduassist.onrender.com";
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarActiveTab, setSidebarActiveTab] = useState("home");

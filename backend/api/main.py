@@ -79,7 +79,7 @@ app = FastAPI(title="EduAssist Question Paper Generator API")
 # Enable CORS for Next.js frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*", "https://eduassist-next-final.vercel.app", "https://eduassist-next-final-o12rbzoby-jais-project.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
