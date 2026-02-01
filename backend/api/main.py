@@ -74,9 +74,24 @@ from agents.attendance_tools import (
     ensure_attendance_base,
 )
 
-# Create database tables
-from database.connection import engine, Base
+# Create database tables & ensure default user exists
+from database.connection import engine, Base, SessionLocal
+from database.models.user import User
+
 Base.metadata.create_all(bind=engine)
+
+# Ensure default user exists
+try:
+    db = SessionLocal()
+    default_user = db.query(User).filter(User.id == "default").first()
+    if not default_user:
+        print("👤 Creating 'default' user...")
+        default_user = User(id="default", email="default@example.com", name="Default User")
+        db.add(default_user)
+        db.commit()
+    db.close()
+except Exception as e:
+    print(f"⚠️ Warning: Could not create default user: {e}")
 
 app = FastAPI(title="EduAssist Question Paper Generator API")
 
@@ -224,13 +239,13 @@ def _parse_dt(value: str) -> datetime:
 
 # Weekday helpers for grid-style timetable
 DAY_IDX = {
-    "monday": 0,
-    "tuesday": 1,
-    "wednesday": 2,
-    "thursday": 3,
-    "friday": 4,
-    "saturday": 5,
-    "sunday": 6,
+    "monday": 0, "mon": 0,
+    "tuesday": 1, "tue": 1,
+    "wednesday": 2, "wed": 2,
+    "thursday": 3, "thu": 3,
+    "friday": 4, "fri": 4,
+    "saturday": 5, "sat": 5,
+    "sunday": 6, "sun": 6,
 }
 
 def _next_weekday(base: date, target_weekday: int) -> date:

@@ -1,4 +1,4 @@
-const API_BASE = 'https://eduassist.onrender.com';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 import { auth } from "@/lib/firebase";
 
 export async function uploadTimetable(file: File): Promise<{ success: boolean; inserted: number; total_events: number }> {

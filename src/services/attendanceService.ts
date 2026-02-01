@@ -1,4 +1,4 @@
-const API_BASE = 'https://eduassist.onrender.com';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export interface AttendanceSummary {
   roll_no: number;
