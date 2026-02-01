@@ -74,6 +74,10 @@ from agents.attendance_tools import (
     ensure_attendance_base,
 )
 
+# Create database tables
+from database.connection import engine, Base
+Base.metadata.create_all(bind=engine)
+
 app = FastAPI(title="EduAssist Question Paper Generator API")
 
 # Enable CORS for Next.js frontend
