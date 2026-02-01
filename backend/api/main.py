@@ -83,10 +83,12 @@ Base.metadata.create_all(bind=engine)
 # Ensure default user exists
 try:
     db = SessionLocal()
-    default_user = db.query(User).filter(User.id == "default").first()
+    # Check by UID (String), not ID (Integer)
+    default_user = db.query(User).filter(User.uid == "default").first()
     if not default_user:
         print("👤 Creating 'default' user...")
-        default_user = User(id="default", email="default@example.com", name="Default User")
+        # Do not set 'id' (it is auto-increment integer). Set 'uid'.
+        default_user = User(uid="default", email="default@example.com", name="Default User")
         db.add(default_user)
         db.commit()
     db.close()
