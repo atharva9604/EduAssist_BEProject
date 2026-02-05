@@ -716,6 +716,21 @@ async def upload_timetable(
         rows = list(csv.reader(content.splitlines()))
         if not rows:
             raise HTTPException(status_code=400, detail="CSV is empty")
+
+        # Smart Header Detection: Find row with at least one day name
+        header_row_idx = 0
+        found_header = False
+        for idx, row in enumerate(rows):
+            # Check if any cell in this row matches a day name
+            row_lower = [str(cell).strip().lower() for cell in row]
+            if any(d in DAY_IDX for d in row_lower):
+                header_row_idx = idx
+                found_header = True
+                break
+        
+        if found_header:
+            rows = rows[header_row_idx:] # Discard metadata rows
+        
         header = [ (h or "").strip() for h in rows[0] ]
         # Normalize header days
         day_cols: List[tuple[int, int]] = []  # (col_index, weekday_index)

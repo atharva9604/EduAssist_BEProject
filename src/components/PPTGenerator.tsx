@@ -6,7 +6,7 @@ import { PiFilePptBold, PiPaperPlaneTiltBold } from "react-icons/pi";
 import { X } from "lucide-react";
 import Link from "next/link";
 
-const API_BASE = "https://eduassist.onrender.com";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 type AssistResult = {
   text: string;
