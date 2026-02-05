@@ -243,8 +243,8 @@ def _parse_dt(value: str) -> datetime:
 DAY_IDX = {
     "monday": 0, "mon": 0,
     "tuesday": 1, "tue": 1,
-    "wednesday": 2, "wed": 2,
-    "thursday": 3, "thu": 3,
+    "wednesday": 2, "wed": 2, "wendesday": 2, "wendsday": 2,
+    "thursday": 3, "thu": 3, "thrusday": 3, "thurs": 3,
     "friday": 4, "fri": 4,
     "saturday": 5, "sat": 5,
     "sunday": 6, "sun": 6,
