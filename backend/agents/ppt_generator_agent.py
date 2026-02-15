@@ -696,23 +696,32 @@ class PPTContentGenerator:
         """
         effective_model = "groq_llama" if model_type != "gemini" else model_type
         
-        prompt = f"""Generate 8-10 bullet points for a PowerPoint slide.
+        prompt = f"""You are a SENIOR ACADEMIC PPT GENERATOR.
+Generate 8-10 concise, teachable bullet points for a PowerPoint slide.
 
 TOPIC: {topic}
 SUBJECT: {subject}
 SLIDE TITLE: {title}
 
 CRITICAL INSTRUCTIONS:
-- Generate educational bullet points (14-22 words each) about {topic} related to "{title}".
-- DO NOT generate or modify the slide title - the title "{title}" is already provided and must be used exactly as-is.
-- Generate ONLY content (bullet points), NOT the title.
+1. **Academic Depth**: Provide in-depth content suitable for a university lecture. Avoid surface-level definitions.
+2. **Concise Format**:
+   - Each bullet point MUST be 5-12 words long.
+   - Use a clear, direct style (e.g., "Goal: Simulate human intelligence" instead of "The goal is to simulate...").
+   - Avoid textbook blurbs or long sentences.
+3. **Mathematical & Technical Precision**:
+   - If the topic involves math, physics, CS, or engineering, YOU MUST include relevant formulas/equations.
+   - Use standard text/Unicode for math (e.g., E = mc^2, F = ma, O(n log n)).
+   - Do NOT use LaTeX format (no $ symbols).
+4. **Structure**:
+   - Do NOT generate or modify the slide title.
+   - Return ONLY content (bullet points).
 
 Return ONLY JSON:
 {{
     "content": ["bullet 1", "bullet 2", "bullet 3", ...]
 }}
-
-CRITICAL: Return at least 8 bullets, maximum 10. Each bullet should be 14-22 words. DO NOT include the title in your response."""
+"""
         
         try:
             response = self.model_manager.generate_content(prompt, effective_model)
