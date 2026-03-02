@@ -31,7 +31,7 @@ import {
   type ResearchProposal,
 } from "@/services/profileService";
 
-const API_BASE = 'https://eduassist.onrender.com';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
 import { Plus, Trash2, BookOpen, Award, Presentation, FileCheck, Briefcase, FileText, Download, X, Users } from "lucide-react";
 import ProfileAddFormModal from "@/components/ProfileAddFormModal";
 import AttendanceManager from "@/components/AttendanceManager";
@@ -69,11 +69,11 @@ const ProfilePage = () => {
   // Form states
   const [showAddForm, setShowAddForm] = useState(false);
   const [formType, setFormType] = useState<string>("");
-
+  
   // Form data states
   const [formData, setFormData] = useState<any>({});
   const [certificateFile, setCertificateFile] = useState<File | null>(null);
-
+  
   // Certificate viewer
   const [showCertificateViewer, setShowCertificateViewer] = useState(false);
   const [selectedCertificate, setSelectedCertificate] = useState<Certification | null>(null);
@@ -157,7 +157,7 @@ const ProfilePage = () => {
   const handleAdd = async (data: any, file?: File | null) => {
     try {
       let dataToSend = { ...data };
-
+      
       // Handle certificate file upload
       if (formType === "certification" && file) {
         // Upload file first
@@ -165,7 +165,7 @@ const ProfilePage = () => {
         // Store the API path for the certificate
         dataToSend.certificate_path = uploadResult.path;
       }
-
+      
       let result;
       switch (formType) {
         case "assessment":
@@ -290,30 +290,33 @@ const ProfilePage = () => {
         <div className="flex gap-3 mb-8 bg-gray-900 rounded-xl p-2 border border-gray-700">
           <button
             onClick={() => setActiveSection("academics")}
-            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition ${activeSection === "academics"
-              ? "bg-[#DAA520] text-black shadow-lg"
-              : "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
-              }`}
+            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition ${
+              activeSection === "academics"
+                ? "bg-[#DAA520] text-black shadow-lg"
+                : "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
+            }`}
           >
             <BookOpen className="w-4 h-4" />
             Academics
           </button>
           <button
             onClick={() => setActiveSection("research")}
-            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition ${activeSection === "research"
-              ? "bg-[#DAA520] text-black shadow-lg"
-              : "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
-              }`}
+            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition ${
+              activeSection === "research"
+                ? "bg-[#DAA520] text-black shadow-lg"
+                : "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
+            }`}
           >
             <Briefcase className="w-4 h-4" />
             Research
           </button>
           <button
             onClick={() => setActiveSection("attendance")}
-            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition ${activeSection === "attendance"
-              ? "bg-[#DAA520] text-black shadow-lg"
-              : "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
-              }`}
+            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition ${
+              activeSection === "attendance"
+                ? "bg-[#DAA520] text-black shadow-lg"
+                : "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
+            }`}
           >
             <Users className="w-4 h-4" />
             Attendance
@@ -334,10 +337,11 @@ const ProfilePage = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex flex-col items-center gap-2 px-4 py-4 rounded-xl transition ${activeTab === tab.id
-                    ? "bg-[#DAA520] text-black shadow-lg scale-105"
-                    : "bg-gray-900 text-gray-300 hover:bg-gray-800 border border-gray-700"
-                    }`}
+                  className={`flex flex-col items-center gap-2 px-4 py-4 rounded-xl transition ${
+                    activeTab === tab.id
+                      ? "bg-[#DAA520] text-black shadow-lg scale-105"
+                      : "bg-gray-900 text-gray-300 hover:bg-gray-800 border border-gray-700"
+                  }`}
                 >
                   <tab.icon className="w-5 h-5" />
                   <span className="text-sm font-medium">{tab.label}</span>
@@ -386,18 +390,18 @@ const ProfilePage = () => {
                   ) : (
                     assessments.map((item) => (
                       <div key={item.id} className="bg-gray-800 p-5 rounded-xl border border-gray-700 hover:border-gray-600 transition flex justify-between items-start group">
-                        <div>
-                          <div className="font-semibold text-white">{item.subject_name}</div>
-                          <div className="text-sm text-gray-400">{item.assessment_type}</div>
-                          <div className="text-sm text-gray-300">
-                            Marks: {item.marks}/{item.total_marks}
-                          </div>
-                          {item.assessment_date && (
-                            <div className="text-xs text-gray-500">
-                              {new Date(item.assessment_date).toLocaleDateString()}
+                          <div>
+                            <div className="font-semibold text-white">{item.subject_name}</div>
+                            <div className="text-sm text-gray-400">{item.assessment_type}</div>
+                            <div className="text-sm text-gray-300">
+                              Marks: {item.marks}/{item.total_marks}
                             </div>
-                          )}
-                        </div>
+                            {item.assessment_date && (
+                              <div className="text-xs text-gray-500">
+                                {new Date(item.assessment_date).toLocaleDateString()}
+                              </div>
+                            )}
+                          </div>
                         <button
                           onClick={() => handleDelete(item.id, "assessment")}
                           className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 p-2 hover:bg-red-900/20 rounded-lg transition"
@@ -420,16 +424,16 @@ const ProfilePage = () => {
                   ) : (
                     fdps.map((item) => (
                       <div key={item.id} className="bg-gray-800 p-5 rounded-xl border border-gray-700 hover:border-gray-600 transition flex justify-between items-start group">
-                        <div>
-                          <div className="font-semibold text-white">{item.title}</div>
-                          <div className="text-sm text-gray-400">{item.organization}</div>
-                          {item.start_date && (
-                            <div className="text-xs text-gray-500">
-                              {new Date(item.start_date).toLocaleDateString()}
-                              {item.end_date && ` - ${new Date(item.end_date).toLocaleDateString()}`}
-                            </div>
-                          )}
-                        </div>
+                          <div>
+                            <div className="font-semibold text-white">{item.title}</div>
+                            <div className="text-sm text-gray-400">{item.organization}</div>
+                            {item.start_date && (
+                              <div className="text-xs text-gray-500">
+                                {new Date(item.start_date).toLocaleDateString()}
+                                {item.end_date && ` - ${new Date(item.end_date).toLocaleDateString()}`}
+                              </div>
+                            )}
+                          </div>
                         <button
                           onClick={() => handleDelete(item.id, "fdp")}
                           className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 p-2 hover:bg-red-900/20 rounded-lg transition"
@@ -452,18 +456,18 @@ const ProfilePage = () => {
                   ) : (
                     lectures.map((item) => (
                       <div key={item.id} className="bg-gray-800 p-5 rounded-xl border border-gray-700 hover:border-gray-600 transition flex justify-between items-start group">
-                        <div>
-                          <div className="font-semibold text-white">{item.title}</div>
-                          {item.venue && <div className="text-sm text-gray-400">{item.venue}</div>}
-                          {item.date && (
-                            <div className="text-xs text-gray-500">
-                              {new Date(item.date).toLocaleDateString()}
-                            </div>
-                          )}
-                          {item.description && (
-                            <div className="text-sm text-gray-300 mt-1">{item.description}</div>
-                          )}
-                        </div>
+                          <div>
+                            <div className="font-semibold text-white">{item.title}</div>
+                            {item.venue && <div className="text-sm text-gray-400">{item.venue}</div>}
+                            {item.date && (
+                              <div className="text-xs text-gray-500">
+                                {new Date(item.date).toLocaleDateString()}
+                              </div>
+                            )}
+                            {item.description && (
+                              <div className="text-sm text-gray-300 mt-1">{item.description}</div>
+                            )}
+                          </div>
                         <button
                           onClick={() => handleDelete(item.id, "lecture")}
                           className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 p-2 hover:bg-red-900/20 rounded-lg transition"
@@ -486,35 +490,36 @@ const ProfilePage = () => {
                   ) : (
                     certifications.map((item) => (
                       <div key={item.id} className="bg-gray-800 p-5 rounded-xl border border-gray-700 hover:border-gray-600 transition flex justify-between items-start group">
-                        <div className="flex-1">
-                          <button
-                            onClick={() => {
-                              if (item.certificate_path) {
-                                setSelectedCertificate(item);
-                                setShowCertificateViewer(true);
-                              }
-                            }}
-                            className={`font-semibold ${item.certificate_path
-                              ? "text-[#DAA520] hover:text-[#B8860B] cursor-pointer underline"
-                              : "text-white"
+                          <div className="flex-1">
+                            <button
+                              onClick={() => {
+                                if (item.certificate_path) {
+                                  setSelectedCertificate(item);
+                                  setShowCertificateViewer(true);
+                                }
+                              }}
+                              className={`font-semibold ${
+                                item.certificate_path
+                                  ? "text-[#DAA520] hover:text-[#B8860B] cursor-pointer underline"
+                                  : "text-white"
                               }`}
-                          >
-                            {item.name}
-                          </button>
-                          <div className="text-sm text-gray-400">{item.issuing_organization}</div>
-                          {item.issue_date && (
-                            <div className="text-xs text-gray-500">
-                              Issued: {new Date(item.issue_date).toLocaleDateString()}
-                              {item.expiry_date && ` | Expires: ${new Date(item.expiry_date).toLocaleDateString()}`}
-                            </div>
-                          )}
-                          {item.certificate_path && (
-                            <div className="mt-2 flex items-center gap-2">
-                              <FileCheck className="w-4 h-4 text-[#DAA520]" />
-                              <span className="text-xs text-gray-400">Certificate available - Click name to view</span>
-                            </div>
-                          )}
-                        </div>
+                            >
+                              {item.name}
+                            </button>
+                            <div className="text-sm text-gray-400">{item.issuing_organization}</div>
+                            {item.issue_date && (
+                              <div className="text-xs text-gray-500">
+                                Issued: {new Date(item.issue_date).toLocaleDateString()}
+                                {item.expiry_date && ` | Expires: ${new Date(item.expiry_date).toLocaleDateString()}`}
+                              </div>
+                            )}
+                            {item.certificate_path && (
+                              <div className="mt-2 flex items-center gap-2">
+                                <FileCheck className="w-4 h-4 text-[#DAA520]" />
+                                <span className="text-xs text-gray-400">Certificate available - Click name to view</span>
+                              </div>
+                            )}
+                          </div>
                         <button
                           onClick={() => handleDelete(item.id, "certification")}
                           className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 p-2 hover:bg-red-900/20 rounded-lg transition"
@@ -559,18 +564,18 @@ const ProfilePage = () => {
                 ) : (
                   projects.map((item) => (
                     <div key={item.id} className="bg-gray-800 p-5 rounded-xl border border-gray-700 hover:border-gray-600 transition flex justify-between items-start group">
-                      <div>
-                        <div className="font-semibold text-white">{item.title}</div>
-                        {item.description && <div className="text-sm text-gray-300 mt-1">{item.description}</div>}
-                        <div className="flex gap-4 mt-2">
-                          {item.start_date && (
-                            <div className="text-xs text-gray-500">
-                              Started: {new Date(item.start_date).toLocaleDateString()}
-                            </div>
-                          )}
-                          <div className="text-xs text-gray-500">Status: {item.status}</div>
+                        <div>
+                          <div className="font-semibold text-white">{item.title}</div>
+                          {item.description && <div className="text-sm text-gray-300 mt-1">{item.description}</div>}
+                          <div className="flex gap-4 mt-2">
+                            {item.start_date && (
+                              <div className="text-xs text-gray-500">
+                                Started: {new Date(item.start_date).toLocaleDateString()}
+                              </div>
+                            )}
+                            <div className="text-xs text-gray-500">Status: {item.status}</div>
+                          </div>
                         </div>
-                      </div>
                       <button
                         onClick={() => handleDelete(item.id, "project")}
                         className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 p-2 hover:bg-red-900/20 rounded-lg transition"
@@ -609,18 +614,18 @@ const ProfilePage = () => {
                 ) : (
                   proposals.map((item) => (
                     <div key={item.id} className="bg-gray-800 p-5 rounded-xl border border-gray-700 hover:border-gray-600 transition flex justify-between items-start group">
-                      <div>
-                        <div className="font-semibold text-white">{item.title}</div>
-                        {item.description && <div className="text-sm text-gray-300 mt-1">{item.description}</div>}
-                        <div className="flex gap-4 mt-2">
-                          {item.submission_date && (
-                            <div className="text-xs text-gray-500">
-                              Submitted: {new Date(item.submission_date).toLocaleDateString()}
-                            </div>
-                          )}
-                          <div className="text-xs text-gray-500">Status: {item.status}</div>
+                        <div>
+                          <div className="font-semibold text-white">{item.title}</div>
+                          {item.description && <div className="text-sm text-gray-300 mt-1">{item.description}</div>}
+                          <div className="flex gap-4 mt-2">
+                            {item.submission_date && (
+                              <div className="text-xs text-gray-500">
+                                Submitted: {new Date(item.submission_date).toLocaleDateString()}
+                              </div>
+                            )}
+                            <div className="text-xs text-gray-500">Status: {item.status}</div>
+                          </div>
                         </div>
-                      </div>
                       <button
                         onClick={() => handleDelete(item.id, "proposal")}
                         className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 p-2 hover:bg-red-900/20 rounded-lg transition"
@@ -657,156 +662,156 @@ const ProfilePage = () => {
         {showCertificateViewer && selectedCertificate && (
           <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
             <div className="bg-gray-900 rounded-xl p-6 w-full max-w-4xl max-h-[90vh] border border-gray-700 shadow-2xl">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-white">{selectedCertificate.name}</h3>
-                <button
-                  onClick={() => {
-                    setShowCertificateViewer(false);
-                    setSelectedCertificate(null);
-                  }}
-                  className="text-gray-400 hover:text-white"
-                >
-                  <X className="w-6 h-6" />
-                </button>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-white">{selectedCertificate.name}</h3>
+              <button
+                onClick={() => {
+                  setShowCertificateViewer(false);
+                  setSelectedCertificate(null);
+                }}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="bg-gray-800 rounded-lg p-4 mb-4">
+              <div className="text-sm text-gray-300 mb-2">
+                <span className="font-semibold">Issuing Organization:</span> {selectedCertificate.issuing_organization}
               </div>
-
-              <div className="bg-gray-800 rounded-lg p-4 mb-4">
+              {selectedCertificate.issue_date && (
                 <div className="text-sm text-gray-300 mb-2">
-                  <span className="font-semibold">Issuing Organization:</span> {selectedCertificate.issuing_organization}
+                  <span className="font-semibold">Issued:</span> {new Date(selectedCertificate.issue_date).toLocaleDateString()}
                 </div>
-                {selectedCertificate.issue_date && (
-                  <div className="text-sm text-gray-300 mb-2">
-                    <span className="font-semibold">Issued:</span> {new Date(selectedCertificate.issue_date).toLocaleDateString()}
-                  </div>
-                )}
-                {selectedCertificate.expiry_date && (
-                  <div className="text-sm text-gray-300">
-                    <span className="font-semibold">Expires:</span> {new Date(selectedCertificate.expiry_date).toLocaleDateString()}
-                  </div>
-                )}
-              </div>
+              )}
+              {selectedCertificate.expiry_date && (
+                <div className="text-sm text-gray-300">
+                  <span className="font-semibold">Expires:</span> {new Date(selectedCertificate.expiry_date).toLocaleDateString()}
+                </div>
+              )}
+            </div>
 
-              <div className="bg-gray-800 rounded-lg p-4 overflow-auto max-h-[60vh]">
-                {selectedCertificate.certificate_path ? (
-                  <div className="flex flex-col items-center">
-                    {(() => {
-                      // Prepend API_BASE if path is relative
-                      const certUrl = selectedCertificate.certificate_path.startsWith('http')
-                        ? selectedCertificate.certificate_path
-                        : `${API_BASE}${selectedCertificate.certificate_path}`;
-
-                      return selectedCertificate.certificate_path.toLowerCase().endsWith('.pdf') ? (
-                        <iframe
-                          src={certUrl}
-                          className="w-full h-[60vh] border border-gray-700 rounded"
-                          title="Certificate PDF"
-                        />
-                      ) : (
-                        <img
-                          src={certUrl}
-                          alt={selectedCertificate.name}
-                          className="max-w-full max-h-[60vh] rounded border border-gray-700"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = "/assets/add.png";
-                            (e.target as HTMLImageElement).alt = "Certificate not found";
-                          }}
-                        />
-                      );
-                    })()}
-                    <div className="mt-4 flex gap-3">
-                      <button
-                        onClick={async () => {
-                          try {
-                            const certUrl = selectedCertificate.certificate_path!.startsWith('http')
-                              ? selectedCertificate.certificate_path!
-                              : `${API_BASE}${selectedCertificate.certificate_path}`;
-
-                            // Fetch the file as blob
-                            const response = await fetch(certUrl);
-                            if (!response.ok) {
-                              throw new Error('Failed to download certificate');
-                            }
-
-                            const blob = await response.blob();
-
-                            // Extract filename from path or use certificate name
-                            const urlParts = certUrl.split('/');
-                            const filenameFromUrl = urlParts[urlParts.length - 1];
-
-                            // Get original filename (remove timestamp prefix if present)
-                            // Format: {user_id}_{timestamp}_{original_filename}
-                            let downloadFilename = filenameFromUrl;
-
-                            // Try to extract original filename from timestamped format
-                            const timestampPattern = /^[^_]+_\d{8}_\d{6}_(.+)$/;
-                            const match = filenameFromUrl.match(timestampPattern);
-                            if (match && match[1]) {
-                              downloadFilename = match[1];
-                            } else {
-                              // If no timestamp pattern, try splitting by underscore
-                              const parts = filenameFromUrl.split('_');
-                              if (parts.length >= 3) {
-                                // Check if second part looks like a timestamp (YYYYMMDD_HHMMSS)
-                                const secondPart = parts[1];
-                                if (secondPart && secondPart.length >= 8 && /^\d+$/.test(secondPart.replace('_', ''))) {
-                                  // Rejoin everything after the timestamp
-                                  downloadFilename = parts.slice(2).join('_');
-                                }
+            <div className="bg-gray-800 rounded-lg p-4 overflow-auto max-h-[60vh]">
+              {selectedCertificate.certificate_path ? (
+                <div className="flex flex-col items-center">
+                  {(() => {
+                    // Prepend API_BASE if path is relative
+                    const certUrl = selectedCertificate.certificate_path.startsWith('http') 
+                      ? selectedCertificate.certificate_path 
+                      : `${API_BASE}${selectedCertificate.certificate_path}`;
+                    
+                    return selectedCertificate.certificate_path.toLowerCase().endsWith('.pdf') ? (
+                      <iframe
+                        src={certUrl}
+                        className="w-full h-[60vh] border border-gray-700 rounded"
+                        title="Certificate PDF"
+                      />
+                    ) : (
+                      <img
+                        src={certUrl}
+                        alt={selectedCertificate.name}
+                        className="max-w-full max-h-[60vh] rounded border border-gray-700"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "/assets/add.png";
+                          (e.target as HTMLImageElement).alt = "Certificate not found";
+                        }}
+                      />
+                    );
+                  })()}
+                  <div className="mt-4 flex gap-3">
+                    <button
+                      onClick={async () => {
+                        try {
+                          const certUrl = selectedCertificate.certificate_path!.startsWith('http') 
+                            ? selectedCertificate.certificate_path! 
+                            : `${API_BASE}${selectedCertificate.certificate_path}`;
+                          
+                          // Fetch the file as blob
+                          const response = await fetch(certUrl);
+                          if (!response.ok) {
+                            throw new Error('Failed to download certificate');
+                          }
+                          
+                          const blob = await response.blob();
+                          
+                          // Extract filename from path or use certificate name
+                          const urlParts = certUrl.split('/');
+                          const filenameFromUrl = urlParts[urlParts.length - 1];
+                          
+                          // Get original filename (remove timestamp prefix if present)
+                          // Format: {user_id}_{timestamp}_{original_filename}
+                          let downloadFilename = filenameFromUrl;
+                          
+                          // Try to extract original filename from timestamped format
+                          const timestampPattern = /^[^_]+_\d{8}_\d{6}_(.+)$/;
+                          const match = filenameFromUrl.match(timestampPattern);
+                          if (match && match[1]) {
+                            downloadFilename = match[1];
+                          } else {
+                            // If no timestamp pattern, try splitting by underscore
+                            const parts = filenameFromUrl.split('_');
+                            if (parts.length >= 3) {
+                              // Check if second part looks like a timestamp (YYYYMMDD_HHMMSS)
+                              const secondPart = parts[1];
+                              if (secondPart && secondPart.length >= 8 && /^\d+$/.test(secondPart.replace('_', ''))) {
+                                // Rejoin everything after the timestamp
+                                downloadFilename = parts.slice(2).join('_');
                               }
                             }
-
-                            // If still no good filename or missing extension, use certificate name with extension
-                            if (!downloadFilename || downloadFilename === filenameFromUrl || !downloadFilename.includes('.')) {
-                              const ext = filenameFromUrl.split('.').pop() || 'pdf';
-                              downloadFilename = `${selectedCertificate.name.replace(/[^a-z0-9]/gi, '_')}.${ext}`;
-                            }
-
-                            // Determine blob type based on file extension for proper download
-                            const ext = downloadFilename.split('.').pop()?.toLowerCase() || '';
-                            const blobType = ext === 'pdf'
-                              ? 'application/pdf'
-                              : ext === 'jpg' || ext === 'jpeg'
-                                ? 'image/jpeg'
-                                : ext === 'png'
-                                  ? 'image/png'
-                                  : blob.type;
-
-                            // Create a new blob with the correct type to ensure proper download
-                            const typedBlob = new Blob([blob], { type: blobType });
-
-                            // Create download link and trigger
-                            const url = window.URL.createObjectURL(typedBlob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = downloadFilename;
-                            a.style.display = 'none';
-                            document.body.appendChild(a);
-                            a.click();
-
-                            // Clean up after a short delay to ensure download starts
-                            setTimeout(() => {
-                              window.URL.revokeObjectURL(url);
-                              document.body.removeChild(a);
-                            }, 100);
-                          } catch (error: any) {
-                            alert(`Failed to download certificate: ${error.message}`);
                           }
-                        }}
-                        className="flex items-center gap-2 px-4 py-2 bg-[#DAA520] text-black rounded-lg hover:bg-[#B8860B]"
-                      >
-                        <Download className="w-4 h-4" />
-                        Download Certificate
-                      </button>
-                    </div>
+                          
+                          // If still no good filename or missing extension, use certificate name with extension
+                          if (!downloadFilename || downloadFilename === filenameFromUrl || !downloadFilename.includes('.')) {
+                            const ext = filenameFromUrl.split('.').pop() || 'pdf';
+                            downloadFilename = `${selectedCertificate.name.replace(/[^a-z0-9]/gi, '_')}.${ext}`;
+                          }
+                          
+                          // Determine blob type based on file extension for proper download
+                          const ext = downloadFilename.split('.').pop()?.toLowerCase() || '';
+                          const blobType = ext === 'pdf' 
+                            ? 'application/pdf' 
+                            : ext === 'jpg' || ext === 'jpeg'
+                            ? 'image/jpeg'
+                            : ext === 'png'
+                            ? 'image/png'
+                            : blob.type;
+                          
+                          // Create a new blob with the correct type to ensure proper download
+                          const typedBlob = new Blob([blob], { type: blobType });
+                          
+                          // Create download link and trigger
+                          const url = window.URL.createObjectURL(typedBlob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = downloadFilename;
+                          a.style.display = 'none';
+                          document.body.appendChild(a);
+                          a.click();
+                          
+                          // Clean up after a short delay to ensure download starts
+                          setTimeout(() => {
+                            window.URL.revokeObjectURL(url);
+                            document.body.removeChild(a);
+                          }, 100);
+                        } catch (error: any) {
+                          alert(`Failed to download certificate: ${error.message}`);
+                        }
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 bg-[#DAA520] text-black rounded-lg hover:bg-[#B8860B]"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download Certificate
+                    </button>
                   </div>
-                ) : (
-                  <div className="text-center text-gray-400 py-8">
-                    Certificate file not available
-                  </div>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="text-center text-gray-400 py-8">
+                  Certificate file not available
+                </div>
+              )}
             </div>
           </div>
+        </div>
         )}
       </div>
     </div>
