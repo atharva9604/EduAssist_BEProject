@@ -1,0 +1,9 @@
+Verifying Template Loading & Logic (3-Slide Mode)...
+Creating mock template at C:\Users\Admin\EduAssist_BEProject\backend\storage\templates\test_template.pptx
+🎨 using template: C:\Users\Admin\EduAssist_BEProject\backend\storage\templates\test_template.pptx
+Generated PPT at: C:\Users\Admin\EduAssist_BEProject\backend\storage\presentations\test_template_logic.pptx
+Slide 0 Title: Template Logic Test
+✅ Title Slide: Updated correctly.
+Total Slides: 5
+✅ Slide Count: Correct (5 slides).
+✅ Thank You Slide: Is at the END.

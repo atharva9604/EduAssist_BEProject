@@ -627,14 +627,14 @@ CRITICAL INSTRUCTIONS:
 1. **Academic Depth**: Provide in-depth content suitable for a university lecture. Avoid surface-level definitions.
 2. **Concise Format**:
    - Each bullet point MUST be 5-12 words long.
-   - Use a clear, direct style.
+   - Use a clear, direct style (e.g., "Goal: Simulate human intelligence" instead of "The goal is to simulate...").
    - Avoid textbook blurbs or long sentences.
 3. **Mathematical & Technical Precision**:
-   - Include relevant formulas/equations if applicable.
-   - Use standard text/Unicode (e.g., E = mc^2).
-   - Do NOT use LaTeX.
+   - If the topic involves math, physics, CS, or engineering, YOU MUST include relevant formulas/equations.
+   - Use standard text/Unicode for math (e.g., E = mc^2, F = ma, O(n log n)).
+   - Do NOT use LaTeX format (no $ symbols).
 4. **Structure**:
-   - Do NOT modify the slide title.
+   - Do NOT generate or modify the slide title.
    - Return ONLY content (bullet points).
 
 Return ONLY JSON:
