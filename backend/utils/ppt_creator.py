@@ -107,24 +107,40 @@ class PPTCreator:
                     paragraph.font.name = 'Calibri'
 
     def _fill_content_slide(self, slide, slide_data: Dict):
-        # 1. Slide Title
+        # Professional Layout Constants (16:9 is 13.33" x 7.5")
+        MARGIN_LEFT = Inches(0.8)
+        MARGIN_TOP = Inches(0.5)
+        TITLE_HEIGHT = Inches(1.0)
+        LINE_TOP = Inches(1.4)
+        CONTENT_TOP = Inches(1.8)
+        MAX_WIDTH = Inches(11.7)
+        COLUMN_SPACING = Inches(0.5)
+
+        # 1. Slide Title - Absolute Positioning
         if slide.shapes.title:
-            slide.shapes.title.text = slide_data.get("title", "Slide Title")
-            for paragraph in slide.shapes.title.text_frame.paragraphs:
+            title = slide.shapes.title
+            title.left = MARGIN_LEFT
+            title.top = MARGIN_TOP
+            title.width = MAX_WIDTH
+            title.height = TITLE_HEIGHT
+            title.text = slide_data.get("title", "Slide Title")
+            
+            for paragraph in title.text_frame.paragraphs:
                 paragraph.font.size = Pt(32)
                 paragraph.font.bold = True
                 paragraph.font.color.rgb = self.PRIMARY_COLOR
                 paragraph.font.name = 'Calibri'
             
-            # Add a subtle footer-like line below title
-            title_bottom = slide.shapes.title.top + slide.shapes.title.height
-            slide.shapes.add_connector(
+            # 2. Subtle Design Line (Fixed Position)
+            connector = slide.shapes.add_connector(
                 1, # Straight line
-                Inches(0.5), title_bottom, 
-                Inches(12.8), title_bottom
-            ).line.color.rgb = self.ACCENT_COLOR
+                MARGIN_LEFT, LINE_TOP, 
+                Inches(12.5), LINE_TOP
+            )
+            connector.line.color.rgb = self.ACCENT_COLOR
+            connector.line.width = Pt(1.5)
 
-        # 2. Body Placeholder Detection
+        # 3. Body Content Area
         content_shape = None
         for shape in slide.placeholders:
             if shape.placeholder_format.type == PP_PLACEHOLDER.BODY and shape.has_text_frame:
@@ -137,7 +153,7 @@ class PPTCreator:
                     content_shape = shape
                     break
 
-        # 3. Handle Content and Image Alignment
+        # 4. Handle Content and Image Alignment
         has_image = bool(slide_data.get("image_path") and os.path.exists(slide_data.get("image_path")))
         
         if content_shape:
@@ -145,13 +161,17 @@ class PPTCreator:
             tf.clear()
             tf.word_wrap = True
             
-            # Adjust content width if image exists (Two-column layout)
+            content_shape.top = CONTENT_TOP
+            content_shape.height = Inches(5.0) # Sane height for 16:9
+
             if has_image:
-                content_shape.width = Inches(7.5)
-                content_shape.left = Inches(0.5)
+                # Two-column layout
+                content_shape.width = Inches(7.0)
+                content_shape.left = MARGIN_LEFT
             else:
-                content_shape.width = Inches(12.3)
-                content_shape.left = Inches(0.5)
+                # Full-width layout
+                content_shape.width = MAX_WIDTH
+                content_shape.left = MARGIN_LEFT
 
             for i, point in enumerate(slide_data.get("content", [])):
                 p = tf.add_paragraph() if i > 0 else tf.paragraphs[0]
@@ -162,20 +182,20 @@ class PPTCreator:
                 p.space_after = Pt(10)
 
         if has_image:
-            self._add_image_to_slide(slide, slide_data)
+            self._add_image_to_slide(slide, slide_data, CONTENT_TOP)
         
         self._add_speaker_notes(slide, slide_data)
 
-    def _add_image_to_slide(self, slide, slide_data: Dict):
+    def _add_image_to_slide(self, slide, slide_data: Dict, top_pos: Inches):
         image_path = slide_data.get("image_path")
         if image_path and os.path.exists(image_path):
             try:
-                # Professional placement: Right side, vertically centered
+                # Align image to the right of content
                 slide.shapes.add_picture(
                     image_path,
-                    left=Inches(8.5),
-                    top=Inches(2.0),
-                    width=Inches(4.3),
+                    left=Inches(8.3), # 0.8 MARGIN + 7.0 CONTENT + 0.5 SPACING
+                    top=top_pos,
+                    width=Inches(4.2), # Remaining width
                 )
             except Exception as e:
                 print(f"⚠️ Image add failed: {e}")
