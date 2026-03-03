@@ -22,11 +22,17 @@ export interface AttendanceResponse {
   ask?: any;
 }
 
+import { auth } from "@/lib/firebase";
+
 // Send natural language command to attendance agent
 export async function sendAttendanceCommand(message: string): Promise<AttendanceResponse> {
+  const token = await auth.currentUser?.getIdToken();
   const res = await fetch(`${API_BASE}/api/attendance/agent`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
     body: JSON.stringify({ message }),
   });
   if (!res.ok) {
@@ -40,10 +46,14 @@ export async function sendAttendanceCommand(message: string): Promise<Attendance
 export async function uploadRoster(file: File, classId: number): Promise<{ filename: string; rows_inserted: number; status: string }> {
   const form = new FormData();
   form.append('file', file);
+  const token = await auth.currentUser?.getIdToken();
 
   const res = await fetch(`${API_BASE}/api/attendance/upload-roster?class_id=${classId}`, {
     method: 'POST',
     body: form,
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    }
   });
   if (!res.ok) {
     const errorText = await res.text();
@@ -58,26 +68,39 @@ export async function downloadAttendanceCsv(subjectId: number): Promise<void> {
   try {
     await sendAttendanceCommand(`Export CSV for subject ${subjectId}`);
   } catch (e) {
-    // Continue even if export command fails - file might already exist
     console.warn("Export command failed, trying direct download:", e);
   }
 
-  // Use direct URL approach - browsers allow this from user-initiated clicks
+  const token = await auth.currentUser?.getIdToken();
   const downloadUrl = `${API_BASE}/api/attendance/export-csv/${subjectId}`;
+
+  // Use fetch instead of direct link to include Authorization header
+  const response = await fetch(downloadUrl, {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    }
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new Error(errorBody.error || errorBody.detail || "Failed to download CSV");
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
 
   // Create a temporary link and trigger download
   const a = document.createElement("a");
-  a.href = downloadUrl;
+  a.href = url;
   a.download = `attendance_summary_subject_${subjectId}.csv`;
   a.style.display = "none";
   document.body.appendChild(a);
-
-  // Trigger click - this must be synchronous with user action
   a.click();
 
-  // Clean up after a short delay
+  // Clean up
   setTimeout(() => {
     document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
   }, 100);
 }
 
