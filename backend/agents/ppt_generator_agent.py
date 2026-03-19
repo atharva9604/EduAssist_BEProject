@@ -691,31 +691,42 @@ class PPTContentGenerator:
     def _generate_single_slide_content(self, slide_num: int, title: str, topic: str, subject: str, 
                                        context: str, model_type: ModelType) -> List[str]:
         """
-        Generate 8-10 bullet points for a single slide.
+        Generate 5-8 detailed bullet points for a single slide.
         Returns list of bullet strings.
         """
         effective_model = "groq_llama" if model_type != "gemini" else model_type
         
-        prompt = f"""You are a SENIOR ACADEMIC PPT GENERATOR.
-Generate 8-10 concise, teachable bullet points for a PowerPoint slide.
+        prompt = f"""You are a PPT CONTENT GENERATOR.
+Generate informative, medium-length bullet points for a student PowerPoint slide.
 
 TOPIC: {topic}
 SUBJECT: {subject}
 SLIDE TITLE: {title}
 
 CRITICAL INSTRUCTIONS:
-1. **Academic Depth**: Provide in-depth content suitable for a university lecture. Avoid surface-level definitions.
-2. **Concise Format**:
-   - Each bullet point MUST be 5-12 words long.
-   - Use a clear, direct style (e.g., "Goal: Simulate human intelligence" instead of "The goal is to simulate...").
-   - Avoid textbook blurbs or long sentences.
-3. **Mathematical & Technical Precision**:
-   - If the topic involves math, physics, CS, or engineering, YOU MUST include relevant formulas/equations.
-   - Use standard text/Unicode for math (e.g., E = mc^2, F = ma, O(n log n)).
-   - Do NOT use LaTeX format (no $ symbols).
-4. **Structure**:
-   - Do NOT generate or modify the slide title.
-   - Return ONLY content (bullet points).
+1. CONTENT QUALITY (LIKE STANDARD STUDENT PPT):
+   - Each bullet point MUST be a FULL, COMPLETE SENTENCE.
+   - Do NOT use artificially short 3-word phrases (e.g., "Used for sequential data", "Can learn patterns").
+   - Write natural, explanatory sentences similar to textbook summaries (e.g., "Database systems provide a centralized repository for data storage and retrieval purposes.").
+   - Avoid long multi-sentence paragraphs. Exactly ONE medium-length sentence per bullet.
+
+2. BULLET LENGTH CONTROL:
+   - Generate exactly 8-10 bullet points per slide.
+   - Each bullet should ideally be 10 to 15 words long. Not too short, not too long.
+
+3. FORMAT QUALITY:
+   - Every bullet must be complete. NO trailing dots ("...") at the end.
+   - Clean formatting. No generic filler phrases.
+
+4. MATHEMATICAL EQUATION (ONCE PER PPT RULE):
+   - ONLY include a mathematical equation on this slide if the title ("{title}") strongly implies architecture, algorithms, or math.
+   - Otherwise, do NOT include an equation. We only want about ONE equation in the entire presentation.
+   - Format it simply. Example: h_t = tanh(Wx_t + Uh_{{t-1}}) 
+   - Do NOT use LaTeX $ symbols.
+
+5. LAYOUT & SPACING:
+   - Keep content within a safe readable area.
+   - If the slide contains geometry/images, the bullet lengths (10-20 words) will fit perfectly aligned left.
 
 Return ONLY JSON:
 {{
@@ -740,9 +751,9 @@ Return ONLY JSON:
             # Ensure 8-10 bullets
             if len(content) < 8:
                 # Retry with simpler prompt
-                retry_prompt = f"""Generate 8-10 bullet points about {topic} related to "{title}".
+                retry_prompt = f"""Generate 8-10 full, medium-length sentence bullet points (10-15 words each) about {topic} related to "{title}". Do NOT use short phrases. COMPLETE sentences only.
 
-Return JSON: {{"content": ["point 1", "point 2", ...]}}"""
+Return JSON: {{"content": ["full sentence 1", "full sentence 2", ...]}}"""
                 retry_response = self.model_manager.generate_content(retry_prompt, effective_model)
                 try:
                     if "```json" in retry_response:
@@ -760,16 +771,14 @@ Return JSON: {{"content": ["point 1", "point 2", ...]}}"""
             return self._generate_fallback_bullets(title, topic, subject)
     
     def _generate_fallback_bullets(self, title: str, topic: str, subject: str) -> List[str]:
-        """Generate fallback bullets if LLM fails"""
+        """Generate fallback bullets if LLM fails, ensuring they look like full explanations"""
         return [
-            f"Key concept about {title} in the context of {topic}",
-            f"Important aspect of {title} relevant to {subject}",
-            f"Fundamental principle related to {title}",
-            f"Practical application of {title} in {topic}",
-            f"Core understanding of {title}",
-            f"Essential knowledge about {title}",
-            f"Significant detail regarding {title}",
-            f"Critical point about {title} in {subject}"
+            f"The primary focus of {title} involves understanding the foundational mechanics of {topic} within the broader context of {subject}.",
+            f"A mathematical or structural approach to {title} helps illustrate how various components interact and influence the overall outcome.",
+            f"Engineers and researchers utilize these concepts extensively to build robust systems that account for dynamic changes in the environment.",
+            f"One critical piece of this subject is recognizing the limitations and assumptions that bound standard models and equations.",
+            f"To effectively apply {title}, one must first evaluate baseline metrics and then execute iterative improvements.",
+            f"Historically, advancements in this area of {topic} have relied heavily on both empirical validation and rigorous theoretical frameworks."
         ]
     
     def _get_default_slide_titles(self, num_slides: int, topic: str) -> List[Dict]:
@@ -1555,11 +1564,11 @@ Return JSON:
                     s["image_query"] = f"{topic} {subject or ''} architecture diagram"
                     break
 
-    def _enforce_bullet_constraints(self, slide_data: Dict, max_bullets: int = 10, max_len: int = 140, _mode_5_exact_guard: bool = False) -> Dict:
+    def _enforce_bullet_constraints(self, slide_data: Dict, max_bullets: int = 10, max_len: int = 300, _mode_5_exact_guard: bool = False) -> Dict:
         """
         Keep bullets concise and slide-ready.
-        - Limit bullets per slide to max_bullets.
-        - Truncate any bullet longer than max_len characters.
+        - Limit bullets per slide to max_bullets (or 8 if image is present).
+        - Remove hard '...' truncation for long strings to allow full sentences.
         
         TITLE-PURE: This function NEVER modifies titles, especially for Mode 2.
         EXACT-PURE: This function NEVER modifies EXACT content, especially for Mode 5.
@@ -1580,6 +1589,11 @@ Return JSON:
                 print(f"  🔒 MODE 5 EXACT: Skipping bullet constraints for slide {slide.get('slide_number')} (EXACT content is LAW)")
                 continue  # Skip this slide - EXACT content must not be modified
             
+            # Dynamic max bullets based on image presence
+            has_image = "image_query" in slide or "image_number" in slide
+            # The slide left-side space can safely fit max ~6 bullets before clipping at the bottom
+            current_max_bullets = 6 if has_image else max_bullets
+            
             # TITLE-PURE: NEVER modify titles - only modify content
             content = slide.get("content", [])
             if not isinstance(content, list):
@@ -1589,10 +1603,12 @@ Return JSON:
                 if not isinstance(point, str):
                     continue
                 p = point.strip()
+                # Remove the strict truncation to "..." that breaks sentences
+                # Only forcefully cut if it's absurdly long (e.g.,>300 chars) but don't add "..."
                 if len(p) > max_len:
-                    p = p[: max_len - 3].rstrip() + "..."
+                    p = p[:max_len]
                 trimmed.append(p)
-                if len(trimmed) >= max_bullets:
+                if len(trimmed) >= current_max_bullets:
                     break
             slide["content"] = trimmed
             

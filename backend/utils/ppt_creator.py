@@ -149,6 +149,25 @@ class PPTCreator:
                     break
 
         if content_shape:
+            # Fix overlap: If there will be an image, restrict text width
+            image_path = slide_data.get("image_path")
+            if image_path and os.path.exists(image_path):
+                # We know the image will be at left=Inches(8.0)
+                # Make sure the text box doesn't go past Inches(7.5) to leave a margin
+                max_text_right = Inches(7.5)
+                
+                # Save inherited position attributes before breaking inheritance on width
+                orig_top = content_shape.top
+                orig_left = content_shape.left
+                orig_height = content_shape.height
+                
+                if orig_left < max_text_right:
+                    content_shape.width = max_text_right - orig_left
+                    # Re-apply to prevent python-pptx from resetting to 0,0
+                    content_shape.left = orig_left
+                    content_shape.top = orig_top
+                    content_shape.height = orig_height
+
             tf = content_shape.text_frame
             tf.clear()
 
