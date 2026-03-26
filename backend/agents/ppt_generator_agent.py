@@ -1,4 +1,67 @@
+import os
+import json
+import re
+from dotenv import load_dotenv
+from typing import Dict, List, Optional, Literal, Tuple
+from pydantic import BaseModel, Field
+import sys
+from pathlib import Path
 
+load_dotenv()
+
+# Add utils to path for model_manager import
+backend_dir = Path(__file__).parent.parent
+sys.path.insert(0, str(backend_dir))
+
+from utils.model_manager import ModelManager, ModelType
+
+class PPTContentGenerator:
+    """PPT Content Generator with 5 PPT Modes support"""
+    
+    def __init__(self):
+        self.model_manager = ModelManager()
+        # Pick default model based on available API keys
+        if self.model_manager.gemini_api_key:
+            self.default_model: ModelType = "gemini"
+        elif self.model_manager.groq_api_key:
+            self.default_model: ModelType = "groq_llama"
+        else:
+            raise RuntimeError("Neither GEMINI_API_KEY nor GROQ_API_KEY is set. Please add one to backend/.env")
+
+    def _detect_ppt_mode(self, prompt: str) -> str:
+        """
+        Detect PPT mode based on EXACT prompt structure (not guessing).
+        
+        Priority order (most specific first):
+        1. Mode 3: "Use EXACT content" + "Do NOT modify" + "Content:" sections
+        2. Mode 5: "Slide instructions:" section
+        3. Mode 4: "Image placement:" section
+        4. Mode 2: "Slide titles:" section OR "Slide structure:" section
+        5. Mode 1: "Use a default slide structure" or "Generate all slide titles"
+        """
+        if not prompt:
+            print(f"⚠️  _detect_ppt_mode: prompt is None or empty")
+            return "mode_1"  # Default to Mode 1
+        
+        prompt_str = str(prompt)
+        prompt_lower = prompt_str.lower()
+        
+        print(f"🔍 _detect_ppt_mode: Checking prompt (length: {len(prompt_str)})")
+        
+        # MODE 3: Exact Content (STRICT) - Highest priority
+        has_exact_marker = "use exact content" in prompt_lower or "exact content" in prompt_lower
+        has_no_modify = "do not modify" in prompt_lower or "don't modify" in prompt_lower
+        has_content_sections = "content:" in prompt_lower or re.search(r'slide\s+\d+.*?content:', prompt_lower, re.IGNORECASE | re.DOTALL)
+        
+        if has_exact_marker and has_no_modify and has_content_sections:
+            print(f"✅ MODE 3 DETECTED: Exact Content (STRICT)")
+            return "mode_3"
+        
+        # MODE 5: Mixed/Advanced - "Slide instructions:" section
+        if "slide instructions:" in prompt_lower:
+            print(f"✅ MODE 5 DETECTED: Mixed/Advanced")
+            return "mode_5"
+        
         # MODE 4: Image-Controlled - "Image placement:" section (check BEFORE Mode 2)
         # Mode 4 has both "Slide structure:" AND "Image placement:", so check for Image placement first
         if "image placement:" in prompt_lower:
