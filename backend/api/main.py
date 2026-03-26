@@ -2306,6 +2306,24 @@ async def upload_roster(
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
+class ResearchLookoutRequest(BaseModel):
+    title: str
+    description: str
+
+from backend.agents.research_lookout_agent import research_lookout_agent
+
+@app.post("/api/research-lookout")
+async def get_research_lookout(req: ResearchLookoutRequest):
+    try:
+        results = research_lookout_agent.conduct_research(req.title, req.description)
+        if "error" in results:
+            raise HTTPException(status_code=500, detail=results["error"])
+        return {"success": True, "lookoutData": results}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
