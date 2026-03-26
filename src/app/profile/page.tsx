@@ -31,7 +31,7 @@ import {
   type ResearchProposal,
 } from "@/services/profileService";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 import { Plus, Trash2, BookOpen, Award, Presentation, FileCheck, Briefcase, FileText, Download, X, Users, Compass } from "lucide-react";
 import ProfileAddFormModal from "@/components/ProfileAddFormModal";
 import AttendanceManager from "@/components/AttendanceManager";
@@ -318,8 +318,8 @@ const ProfilePage = () => {
           <button
             onClick={() => setActiveSection("academics")}
             className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition ${activeSection === "academics"
-                ? "bg-[#DAA520] text-black shadow-lg"
-                : "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
+              ? "bg-[#DAA520] text-black shadow-lg"
+              : "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
               }`}
           >
             <BookOpen className="w-4 h-4" />
@@ -328,8 +328,8 @@ const ProfilePage = () => {
           <button
             onClick={() => setActiveSection("research")}
             className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition ${activeSection === "research"
-                ? "bg-[#DAA520] text-black shadow-lg"
-                : "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
+              ? "bg-[#DAA520] text-black shadow-lg"
+              : "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
               }`}
           >
             <Briefcase className="w-4 h-4" />
@@ -338,8 +338,8 @@ const ProfilePage = () => {
           <button
             onClick={() => setActiveSection("attendance")}
             className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition ${activeSection === "attendance"
-                ? "bg-[#DAA520] text-black shadow-lg"
-                : "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
+              ? "bg-[#DAA520] text-black shadow-lg"
+              : "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
               }`}
           >
             <Users className="w-4 h-4" />
@@ -362,8 +362,8 @@ const ProfilePage = () => {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
                   className={`flex flex-col items-center gap-2 px-4 py-4 rounded-xl transition ${activeTab === tab.id
-                      ? "bg-[#DAA520] text-black shadow-lg scale-105"
-                      : "bg-gray-900 text-gray-300 hover:bg-gray-800 border border-gray-700"
+                    ? "bg-[#DAA520] text-black shadow-lg scale-105"
+                    : "bg-gray-900 text-gray-300 hover:bg-gray-800 border border-gray-700"
                     }`}
                 >
                   <tab.icon className="w-5 h-5" />
@@ -522,8 +522,8 @@ const ProfilePage = () => {
                               }
                             }}
                             className={`font-semibold ${item.certificate_path
-                                ? "text-[#DAA520] hover:text-[#B8860B] cursor-pointer underline"
-                                : "text-white"
+                              ? "text-[#DAA520] hover:text-[#B8860B] cursor-pointer underline"
+                              : "text-white"
                               }`}
                           >
                             {item.name}
@@ -598,12 +598,22 @@ const ProfilePage = () => {
                           <div className="text-xs text-gray-500">Status: {item.status}</div>
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleDelete(item.id, "project")}
-                        className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 p-2 hover:bg-red-900/20 rounded-lg transition"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="opacity-0 group-hover:opacity-100 flex items-center transition">
+                        <button
+                          onClick={() => handleLookout(item as any)}
+                          className="text-blue-400 hover:text-blue-300 p-2 hover:bg-blue-900/20 rounded-lg transition mr-2 flex items-center gap-2"
+                          title="Run Research Lookout"
+                        >
+                          <Compass className="w-4 h-4" />
+                          <span className="text-sm font-semibold">Lookout</span>
+                        </button>
+                        <button
+                          onClick={() => handleDelete(item.id, "project")}
+                          className="text-red-400 hover:text-red-300 p-2 hover:bg-red-900/20 rounded-lg transition"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}
