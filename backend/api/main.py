@@ -2310,7 +2310,7 @@ class ResearchLookoutRequest(BaseModel):
     title: str
     description: str
 
-from backend.agents.research_lookout_agent import research_lookout_agent
+from agents.research_lookout_agent import research_lookout_agent
 
 @app.post("/api/research-lookout")
 async def get_research_lookout(req: ResearchLookoutRequest):
