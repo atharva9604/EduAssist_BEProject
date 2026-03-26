@@ -154,6 +154,7 @@ class QuestionPaperRequest(BaseModel):
     difficulty: str = "medium"  # Overall difficulty, can be "easy", "medium", "hard", or "mixed"
     difficulty_distribution: Optional[Dict[str, int]] = None  # e.g., {"easy": 2, "medium": 5, "hard": 3}
     num_sets: int = 1  # Number of question paper sets to generate
+    institution_standard: str = "General"  # Standard formatting guideline (e.g., Mumbai University)
 
 # PPT request/response models
 class PPTGenerationRequest(BaseModel):

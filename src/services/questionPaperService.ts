@@ -10,6 +10,7 @@ export interface QuestionPaperRequest {
   marks_short?: number;
   marks_long?: number;
   difficulty?: string;
+  institution_standard?: string;
 }
 
 export interface Question {

@@ -168,6 +168,7 @@ class QuestionGenerator:
             num_mcq = requirements.get('num_mcq', 5)
             num_short = requirements.get('num_short', 3)
             num_long = requirements.get('num_long', 2)
+            institution_standard = requirements.get('institution_standard', 'General')
             
             # Calculate difficulty distribution for each question type
             mcq_dist = self._calculate_difficulty_distribution(num_mcq, difficulty, difficulty_distribution)
@@ -188,6 +189,7 @@ class QuestionGenerator:
             - Question-worthy Content: {content_analysis.get('question_worthy_content', [])}
             
             Requirements:
+            - Institution Standard/Format: {institution_standard}
             - Number of MCQs: {num_mcq} (Easy: {mcq_dist['easy']}, Medium: {mcq_dist['medium']}, Hard: {mcq_dist['hard']})
             - Number of Short Answer Questions: {num_short} (Easy: {short_dist['easy']}, Medium: {short_dist['medium']}, Hard: {short_dist['hard']})
             - Number of Long Answer Questions: {num_long} (Easy: {long_dist['easy']}, Medium: {long_dist['medium']}, Hard: {long_dist['hard']})
@@ -201,6 +203,8 @@ class QuestionGenerator:
             questions that match the difficulty levels (easy questions should be straightforward, 
             medium questions should require moderate understanding, hard questions should require deep analysis).
             
+            Additionally, ensure the structure, depth, and tone strictly align with the {institution_standard} examination guidelines.
+            
             Please generate questions in JSON format with this structure:
             {{
                 "mcq_questions": [
@@ -208,7 +212,7 @@ class QuestionGenerator:
                         "question": "question text",
                         "options": ["option1", "option2", "option3", "option4"],
                         "correct_answer": "correct option",
-                        "marks": 1,
+                        "marks": {requirements.get('marks_mcq', 1)},
                         "difficulty": "easy/medium/hard"
                     }}
                 ],
@@ -216,7 +220,7 @@ class QuestionGenerator:
                     {{
                         "question": "question text",
                         "correct_answer": "brief answer",
-                        "marks": 3,
+                        "marks": {requirements.get('marks_short', 3)},
                         "difficulty": "easy/medium/hard"
                     }}
                 ],
@@ -224,7 +228,7 @@ class QuestionGenerator:
                     {{
                         "question": "question text",
                         "correct_answer": "detailed answer",
-                        "marks": 5,
+                        "marks": {requirements.get('marks_long', 5)},
                         "difficulty": "easy/medium/hard"
                     }}
                 ]

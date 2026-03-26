@@ -9,7 +9,11 @@ export default function QuestionPaperGenerator() {
   const [numMcq, setNumMcq] = useState(5);
   const [numShort, setNumShort] = useState(3);
   const [numLong, setNumLong] = useState(2);
+  const [marksMcq, setMarksMcq] = useState(1);
+  const [marksShort, setMarksShort] = useState(3);
+  const [marksLong, setMarksLong] = useState(5);
   const [difficulty, setDifficulty] = useState('medium');
+  const [institution, setInstitution] = useState('General');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<QuestionPaperResponse | null>(null);
   const [error, setError] = useState('');
@@ -30,9 +34,9 @@ export default function QuestionPaperGenerator() {
       setLoading(true);
       setError('');
       setResult(null);
-  
+
       let sourceText = content;
-  
+
       // If textarea empty but a PDF is selected → extract text from PDF
       if (!sourceText.trim() && pdfFile) {
         sourceText = await uploadPdfAndExtract(pdfFile);
@@ -44,13 +48,13 @@ export default function QuestionPaperGenerator() {
         // optional: show a preview in textarea
         setContent(sourceText.slice(0, 5000));
       }
-  
+
       if (!sourceText.trim()) {
         setError('Please enter content or upload a PDF.');
         setLoading(false);
         return;
       }
-  
+
       // Normalize numeric inputs; allow empty/invalid -> 0
       const safeInt = (v: number) => (Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0);
       const response = await generateQuestionPaper({
@@ -59,14 +63,15 @@ export default function QuestionPaperGenerator() {
         num_mcq: safeInt(numMcq),
         num_short: safeInt(numShort),
         num_long: safeInt(numLong),
-        marks_mcq: 1,
-        marks_short: 3,
-        marks_long: 5,
-        difficulty: difficulty
+        marks_mcq: safeInt(marksMcq),
+        marks_short: safeInt(marksShort),
+        marks_long: safeInt(marksLong),
+        difficulty: difficulty,
+        institution_standard: institution
       }, true); // Generate PDF
-  
+
       setResult(response);
-      
+
       // Auto-download PDF if available
       if (response.pdf_filename) {
         try {
@@ -89,7 +94,7 @@ export default function QuestionPaperGenerator() {
     lines.push("Generated Question Paper");
     lines.push(`Total Marks: ${result.total_marks}`);
     lines.push("");
-  
+
     if (result.questions.mcq_questions.length) {
       lines.push("MCQs:");
       result.questions.mcq_questions.forEach((q, i) => {
@@ -101,7 +106,7 @@ export default function QuestionPaperGenerator() {
         lines.push("");
       });
     }
-  
+
     if (result.questions.short_answer_questions.length) {
       lines.push("Short Answer Questions:");
       result.questions.short_answer_questions.forEach((q, i) => {
@@ -110,7 +115,7 @@ export default function QuestionPaperGenerator() {
         lines.push("");
       });
     }
-  
+
     if (result.questions.long_answer_questions.length) {
       lines.push("Long Answer Questions:");
       result.questions.long_answer_questions.forEach((q, i) => {
@@ -119,7 +124,7 @@ export default function QuestionPaperGenerator() {
         lines.push("");
       });
     }
-  
+
     return lines.join("\n");
   };
 
@@ -171,11 +176,11 @@ export default function QuestionPaperGenerator() {
               }}
             />
             <button
-  onClick={downloadTXT}
-  className="mt-4 px-4 py-2 rounded-lg bg-[#DAA520] text-black font-semibold hover:bg-[#B8860B]"
->
-  Download TXT
-</button>
+              onClick={downloadTXT}
+              className="mt-4 px-4 py-2 rounded-lg bg-[#DAA520] text-black font-semibold hover:bg-[#B8860B]"
+            >
+              Download TXT
+            </button>
           </div>
         </div>
         <textarea
@@ -187,58 +192,115 @@ export default function QuestionPaperGenerator() {
 
         <div className="grid grid-cols-3 gap-4 mt-4">
           <div>
-            <label className="block mb-2 font-semibold">MCQ Questions</label>
-            <input
-              type="number"
-              value={numMcq}
-              onChange={(e) => {
-                const v = e.target.value;
-                setNumMcq(v === '' ? 0 : (parseInt(v, 10) || 0));
-              }}
-              className="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600"
-              min="0"
-            />
+            <label className="block mb-2 font-semibold">MCQs (Count / Marks)</label>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                value={numMcq}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setNumMcq(v === '' ? 0 : (parseInt(v, 10) || 0));
+                }}
+                className="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600"
+                min="0"
+                placeholder="Count"
+              />
+              <input
+                type="number"
+                value={marksMcq}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setMarksMcq(v === '' ? 0 : (parseInt(v, 10) || 0));
+                }}
+                className="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600"
+                min="0"
+                placeholder="Marks"
+              />
+            </div>
           </div>
           <div>
-            <label className="block mb-2 font-semibold">Short Questions</label>
-            <input
-              type="number"
-              value={numShort}
-              onChange={(e) => {
-                const v = e.target.value;
-                setNumShort(v === '' ? 0 : (parseInt(v, 10) || 0));
-              }}
-              className="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600"
-              min="0"
-            />
+            <label className="block mb-2 font-semibold">Short Qs (Count / Marks)</label>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                value={numShort}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setNumShort(v === '' ? 0 : (parseInt(v, 10) || 0));
+                }}
+                className="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600"
+                min="0"
+                placeholder="Count"
+              />
+              <input
+                type="number"
+                value={marksShort}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setMarksShort(v === '' ? 0 : (parseInt(v, 10) || 0));
+                }}
+                className="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600"
+                min="0"
+                placeholder="Marks"
+              />
+            </div>
           </div>
           <div>
-            <label className="block mb-2 font-semibold">Long Questions</label>
-            <input
-              type="number"
-              value={numLong}
-              onChange={(e) => {
-                const v = e.target.value;
-                setNumLong(v === '' ? 0 : (parseInt(v, 10) || 0));
-              }}
-              className="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600"
-              min="0"
-            />
+            <label className="block mb-2 font-semibold">Long Qs (Count / Marks)</label>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                value={numLong}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setNumLong(v === '' ? 0 : (parseInt(v, 10) || 0));
+                }}
+                className="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600"
+                min="0"
+                placeholder="Count"
+              />
+              <input
+                type="number"
+                value={marksLong}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setMarksLong(v === '' ? 0 : (parseInt(v, 10) || 0));
+                }}
+                className="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600"
+                min="0"
+                placeholder="Marks"
+              />
+            </div>
           </div>
         </div>
 
-        <div className="mt-4">
-          <label className="block mb-2 font-semibold">Difficulty Level</label>
-          <select
-            value={difficulty}
-            onChange={(e) => setDifficulty(e.target.value)}
-            className="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:border-[#DAA520] focus:outline-none"
-          >
-            <option value="easy">Easy</option>
-            <option value="medium">Medium</option>
-            <option value="hard">Hard</option>
-            <option value="mixed">Mixed</option>
-          </select>
+        <div className="grid grid-cols-2 gap-4 mt-4">
+          <div>
+            <label className="block mb-2 font-semibold">Difficulty Level</label>
+            <select
+              value={difficulty}
+              onChange={(e) => setDifficulty(e.target.value)}
+              className="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:border-[#DAA520] focus:outline-none"
+            >
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
+              <option value="mixed">Mixed</option>
+            </select>
+          </div>
+          <div>
+            <label className="block mb-2 font-semibold">Institution Standard</label>
+            <select
+              value={institution}
+              onChange={(e) => setInstitution(e.target.value)}
+              className="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:border-[#DAA520] focus:outline-none"
+            >
+              <option value="General">General (Default)</option>
+              <option value="Mumbai University">Mumbai University</option>
+              <option value="VESIT Autonomous">VESIT Autonomous</option>
+              <option value="Pune University">Pune University</option>
+            </select>
+          </div>
         </div>
 
         <button
