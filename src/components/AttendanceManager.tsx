@@ -187,13 +187,25 @@ export default function AttendanceManager() {
                       e.preventDefault();
                       try {
                         // Extract subject_id from response or use default
+                        // Try to extract from file_path or use subject 1 as default
                         const subjectIdMatch = response.file_path?.match(/subject_(\d+)/);
                         const subjectId = subjectIdMatch ? parseInt(subjectIdMatch[1]) : 1;
 
-                        // Use the official service which now handles authentication
-                        downloadAttendanceCsv(subjectId);
-                      } catch (err: any) {
-                        setResponse({ ...response, error: err?.message || "Failed to download CSV" });
+                        // Direct download - trigger immediately from user click
+                        const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+                        const downloadUrl = `${API_BASE}/api/attendance/export-csv/${subjectId}`;
+
+                        const a = document.createElement("a");
+                        a.href = downloadUrl;
+                        a.download = `attendance_summary_subject_${subjectId}.csv`;
+                        a.style.display = "none";
+                        document.body.appendChild(a);
+                        a.click();
+                        setTimeout(() => {
+                          document.body.removeChild(a);
+                        }, 100);
+                      } catch (e: any) {
+                        setResponse({ ...response, error: e?.message || "Failed to download CSV" });
                       }
                     }}
                     className="flex items-center gap-2 px-4 py-2 bg-[#DAA520] text-black rounded-lg font-semibold hover:bg-[#B8860B] transition"
@@ -209,57 +221,73 @@ export default function AttendanceManager() {
       )}
 
       {/* Summary Table */}
-      {
-        summary && summary.length > 0 && (
-          <div className="bg-gray-900 rounded-lg p-6 border border-gray-700">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-white">Attendance Summary</h3>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  // Use the official service for authenticated download
-                  downloadAttendanceCsv(1);
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm text-gray-300"
-              >
-                <Download className="w-4 h-4" />
-                Export CSV
-              </button>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-700">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">Roll No</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">Name</th>
-                    <th className="text-center py-3 px-4 text-sm font-semibold text-gray-300">Present</th>
-                    <th className="text-center py-3 px-4 text-sm font-semibold text-gray-300">Total</th>
-                    <th className="text-center py-3 px-4 text-sm font-semibold text-gray-300">Percentage</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {summary.map((item, idx) => (
-                    <tr key={idx} className="border-b border-gray-800 hover:bg-gray-800/50">
-                      <td className="py-3 px-4 text-white">{item.roll_no}</td>
-                      <td className="py-3 px-4 text-gray-300">{item.name}</td>
-                      <td className="py-3 px-4 text-center text-gray-300">{item.present}</td>
-                      <td className="py-3 px-4 text-center text-gray-300">{item.total}</td>
-                      <td className="py-3 px-4 text-center">
-                        <span className={`font-semibold ${item.percentage >= 75 ? "text-green-400" :
-                          item.percentage >= 50 ? "text-yellow-400" :
-                            "text-red-400"
-                          }`}>
-                          {item.percentage.toFixed(1)}%
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+      {summary && summary.length > 0 && (
+        <div className="bg-gray-900 rounded-lg p-6 border border-gray-700">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-white">Attendance Summary</h3>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                // Direct download - must be synchronous with user click
+                const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+                const downloadUrl = `${API_BASE}/api/attendance/export-csv/1`;
+
+                const a = document.createElement("a");
+                a.href = downloadUrl;
+                a.download = `attendance_summary_subject_1.csv`;
+                a.style.display = "none";
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                  document.body.removeChild(a);
+                }, 100);
+
+                // Optionally generate CSV in background (non-blocking)
+                sendAttendanceCommand(`Export CSV for subject 1`).then((result) => {
+                  setResponse(result);
+                }).catch(() => {
+                  // Ignore errors - file might already exist
+                });
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm text-gray-300"
+            >
+              <Download className="w-4 h-4" />
+              Export CSV
+            </button>
           </div>
-        )
-      }
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-700">
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">Roll No</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">Name</th>
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-300">Present</th>
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-300">Total</th>
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-300">Percentage</th>
+                </tr>
+              </thead>
+              <tbody>
+                {summary.map((item, idx) => (
+                  <tr key={idx} className="border-b border-gray-800 hover:bg-gray-800/50">
+                    <td className="py-3 px-4 text-white">{item.roll_no}</td>
+                    <td className="py-3 px-4 text-gray-300">{item.name}</td>
+                    <td className="py-3 px-4 text-center text-gray-300">{item.present}</td>
+                    <td className="py-3 px-4 text-center text-gray-300">{item.total}</td>
+                    <td className="py-3 px-4 text-center">
+                      <span className={`font-semibold ${item.percentage >= 75 ? "text-green-400" :
+                        item.percentage >= 50 ? "text-yellow-400" :
+                          "text-red-400"
+                        }`}>
+                        {item.percentage.toFixed(1)}%
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Upload Roster */}
       <div className="bg-gray-900 rounded-lg p-6 border border-gray-700">
@@ -318,6 +346,6 @@ export default function AttendanceManager() {
           </div>
         </div>
       </div>
-    </div >
+    </div>
   );
 }

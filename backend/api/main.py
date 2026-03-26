@@ -2273,8 +2273,12 @@ async def upload_roster(
         # Defaults: teacher_id=1, subject_id=1 are enough to satisfy FKs for class creation.
         ensure_attendance_base(db, teacher_id=1, class_id=class_id, subject_id=1)
 
-        # Clear existing students (optional per class)
-        db.query(AttendanceStudent).filter(AttendanceStudent.class_id == class_id).delete()
+        # Clear existing students safely
+        # We need to delete records first or use SQLAlchemy cascade by loading objects
+        existing_students = db.query(AttendanceStudent).filter(AttendanceStudent.class_id == class_id).all()
+        for s in existing_students:
+            db.delete(s)
+        db.flush() # Ensure deletions are processed before insertions
 
         # Insert all students
         for _, row in df.iterrows():
