@@ -41,30 +41,39 @@ class ResearchLookoutAgent:
         }}
         Provide up to 5 recent papers/articles. Return ONLY valid JSON. Focus on high-quality academic or tech references.
         """
-        try:
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    tools=[{"google_search": {}}]
+        # Try with google_search grounding first, fallback to plain generation
+        for attempt, config in enumerate([
+            types.GenerateContentConfig(tools=[{"google_search": {}}]),
+            types.GenerateContentConfig(),  # fallback: no grounding
+        ]):
+            try:
+                model_name = self.model if attempt == 0 else "gemini-2.0-flash"
+                print(f"🔍 Research Lookout attempt {attempt+1} with model={model_name}, grounding={'yes' if attempt==0 else 'no'}")
+                response = self.client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                    config=config,
                 )
-            )
-            result_text = getattr(response, "text", "") or ""
-            
-            # Clean JSON markdown blocks
-            if "```json" in result_text:
-                result_text = result_text.split("```json")[1].split("```")[0].strip()
-            elif "```" in result_text:
-                result_text = result_text.split("```")[1].split("```")[0].strip()
+                result_text = getattr(response, "text", "") or ""
                 
-            return json.loads(result_text)
-        except Exception as e:
-            print(f"Error in Research Lookout: {e}")
-            return {
-                "trending_topics": [],
-                "recent_papers": [],
-                "error": str(e)
-            }
+                # Clean JSON markdown blocks
+                if "```json" in result_text:
+                    result_text = result_text.split("```json")[1].split("```")[0].strip()
+                elif "```" in result_text:
+                    result_text = result_text.split("```")[1].split("```")[0].strip()
+                    
+                return json.loads(result_text)
+            except Exception as e:
+                print(f"⚠️ Research Lookout attempt {attempt+1} failed: {e}")
+                last_error = e
+                continue
+
+        print(f"❌ All Research Lookout attempts failed: {last_error}")
+        return {
+            "trending_topics": [],
+            "recent_papers": [],
+            "error": str(last_error)
+        }
 
 # Instance for API
 research_lookout_agent = ResearchLookoutAgent()
