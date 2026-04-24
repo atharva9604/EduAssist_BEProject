@@ -80,9 +80,21 @@ export default function QuestionPaperGenerator() {
           console.error('Failed to auto-download PDF:', err);
         }
       }
-    } catch (err) {
-      setError('Failed to generate question paper. Please try again.');
-      console.error(err);
+    } catch (err: any) {
+      // Try to extract detailed error message from API response
+      let errorMsg = 'Failed to generate question paper. Please try again.';
+      if (err?.message) {
+        errorMsg = err.message;
+      }
+      // If it's an HTTP error, try to get the detail from the response
+      if (err?.response) {
+        try {
+          const errData = await err.response.json();
+          if (errData?.detail) errorMsg = errData.detail;
+        } catch {}
+      }
+      setError(errorMsg);
+      console.error('Question paper generation error:', err);
     } finally {
       setLoading(false);
     }

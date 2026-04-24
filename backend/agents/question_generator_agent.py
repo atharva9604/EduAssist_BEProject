@@ -243,6 +243,13 @@ class QuestionGenerator:
             )
             result_text = getattr(response, "text", "") or ""
             
+            print(f"[QuestionGenerator] Raw Gemini response length: {len(result_text)}")
+            if not result_text.strip():
+                raise RuntimeError(
+                    f"Gemini returned an empty response. Model: {self.model}. "
+                    f"This usually means the API key has no quota or the model is unavailable."
+                )
+            
             # Try to extract JSON from the response
             try:
                 # Remove markdown code blocks if present
@@ -251,23 +258,33 @@ class QuestionGenerator:
                 elif "```" in result_text:
                     result_text = result_text.split("```")[1].split("```")[0].strip()
                 
-                return json.loads(result_text)
-            except json.JSONDecodeError:
-                # If JSON parsing fails, return empty structure
-                return {
-                    "mcq_questions": [],
-                    "short_answer_questions": [],
-                    "long_answer_questions": []
-                }
+                parsed = json.loads(result_text)
+            except json.JSONDecodeError as je:
+                print(f"[QuestionGenerator] JSON parse failed. Raw text (first 500 chars): {result_text[:500]}")
+                raise RuntimeError(
+                    f"Gemini returned invalid JSON that could not be parsed. "
+                    f"Parse error: {je}. First 200 chars of response: {result_text[:200]}"
+                )
+            
+            # Validate that questions were actually generated
+            total_generated = (
+                len(parsed.get("mcq_questions", [])) +
+                len(parsed.get("short_answer_questions", [])) +
+                len(parsed.get("long_answer_questions", []))
+            )
+            if total_generated == 0:
+                print(f"[QuestionGenerator] WARNING: Gemini returned 0 questions. Parsed data: {parsed}")
+                raise RuntimeError(
+                    "Gemini returned a valid JSON response but with 0 questions. "
+                    "This may indicate the content was too short or unclear for question generation."
+                )
+            
+            print(f"[QuestionGenerator] Successfully generated {total_generated} questions")
+            return parsed
                 
         except Exception as e:
             print(f"Error in question generation: {e}")
-            return {
-                "mcq_questions": [],
-                "short_answer_questions": [],
-                "long_answer_questions": [],
-                "error": str(e)
-            }
+            raise
     
     def generate_multiple_sets(
         self,

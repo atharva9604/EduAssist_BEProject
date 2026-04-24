@@ -45,6 +45,13 @@ class ContentAnalyzer:
             )
             result_text = getattr(response, "text", "") or ""
             
+            print(f"[ContentAnalyzer] Raw Gemini response length: {len(result_text)}")
+            if not result_text.strip():
+                raise RuntimeError(
+                    f"Content analyzer: Gemini returned an empty response. Model: {self.model_name}. "
+                    f"This usually means the API key has no quota or the model is unavailable."
+                )
+            
             # Try to extract JSON from the response
             try:
                 # Remove markdown code blocks if present
@@ -53,9 +60,12 @@ class ContentAnalyzer:
                 elif "```" in result_text:
                     result_text = result_text.split("```")[1].split("```")[0].strip()
                 
-                return json.loads(result_text)
-            except json.JSONDecodeError:
-                # If JSON parsing fails, return a structured response
+                parsed = json.loads(result_text)
+                print(f"[ContentAnalyzer] Successfully parsed content analysis with {len(parsed.get('key_concepts', []))} key concepts")
+                return parsed
+            except json.JSONDecodeError as je:
+                print(f"[ContentAnalyzer] JSON parse failed, using raw text as fallback. Error: {je}")
+                # If JSON parsing fails, return a structured response with the raw text
                 return {
                     "key_concepts": [],
                     "difficulty_level": "medium",
@@ -66,11 +76,4 @@ class ContentAnalyzer:
                 
         except Exception as e:
             print(f"Error in content analysis: {e}")
-            return {
-                "key_concepts": [],
-                "difficulty_level": "medium",
-                "subject_areas": [],
-                "important_points": [],
-                "question_worthy_content": [],
-                "error": str(e)
-            }
+            raise

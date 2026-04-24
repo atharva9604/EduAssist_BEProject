@@ -63,7 +63,13 @@ export const generateQuestionPaper = async (
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      // Try to extract detailed error from response body
+      let errorDetail = `HTTP error! status: ${response.status}`;
+      try {
+        const errData = await response.json();
+        if (errData?.detail) errorDetail = errData.detail;
+      } catch {}
+      throw new Error(errorDetail);
     }
 
     const data = await response.json();
