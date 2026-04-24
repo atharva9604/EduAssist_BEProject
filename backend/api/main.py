@@ -1192,6 +1192,17 @@ async def generate_questions(request: QuestionGenerationRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+def _enforce_marks_scheme(questions_data: dict, marks_mcq: int, marks_short: int, marks_long: int) -> dict:
+    """Force-overwrite each question's marks to match the user's requested marking scheme.
+    Gemini may return arbitrary marks values; this ensures they match the scheme exactly."""
+    for q in questions_data.get("mcq_questions", []):
+        q["marks"] = marks_mcq
+    for q in questions_data.get("short_answer_questions", []):
+        q["marks"] = marks_short
+    for q in questions_data.get("long_answer_questions", []):
+        q["marks"] = marks_long
+    return questions_data
+
 @app.post("/api/generate-question-paper")
 async def generate_question_paper(request: QuestionPaperRequest):
     """Complete workflow: Analyze content + Generate questions"""
@@ -1218,6 +1229,9 @@ async def generate_question_paper(request: QuestionPaperRequest):
             content_analysis,
             requirements
         )
+        
+        # Force-overwrite marks to match the user's marking scheme
+        _enforce_marks_scheme(questions, request.marks_mcq, request.marks_short, request.marks_long)
         
         # Calculate total marks
         total_marks = (
@@ -1331,6 +1345,9 @@ async def generate_question_paper_pdf(request: QuestionPaperRequest):
             sets_with_marks = []
             
             for q_set in question_sets:
+                # Force-overwrite marks to match the user's marking scheme
+                _enforce_marks_scheme(q_set, request.marks_mcq, request.marks_short, request.marks_long)
+                
                 total_marks = (
                     len(q_set.get("mcq_questions", [])) * request.marks_mcq +
                     len(q_set.get("short_answer_questions", [])) * request.marks_short +
@@ -1377,6 +1394,9 @@ async def generate_question_paper_pdf(request: QuestionPaperRequest):
                 requirements,
                 difficulty_distribution=request.difficulty_distribution
             )
+            
+            # Force-overwrite marks to match the user's marking scheme
+            _enforce_marks_scheme(questions, request.marks_mcq, request.marks_short, request.marks_long)
             
             # Calculate total marks
             total_marks = (
