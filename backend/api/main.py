@@ -1915,7 +1915,7 @@ async def upload_certificate(
     return {"success": True, "path": relative_path, "filename": safe_filename}
 
 @app.get("/api/certificates/{filename}")
-async def get_certificate(filename: str):
+async def get_certificate(filename: str, download: bool = False):
     """Serve certificate files"""
     # Use absolute path relative to backend directory
     file_path = backend_dir / "storage" / "certificates" / filename
@@ -1947,13 +1947,14 @@ async def get_certificate(filename: str):
             original_filename = parts[2]  # Get the original filename
     
     # Ensure all files download with proper headers
-    # Use attachment for all file types to force download
+    # Use attachment for download, inline for preview
+    disposition = "attachment" if download else "inline"
     return FileResponse(
         path=str(file_path),
         media_type=media_type,
         filename=original_filename,
         headers={
-            "Content-Disposition": f'attachment; filename="{original_filename}"',
+            "Content-Disposition": f'{disposition}; filename="{original_filename}"',
             "Cache-Control": "no-cache",
             "X-Content-Type-Options": "nosniff"
         }

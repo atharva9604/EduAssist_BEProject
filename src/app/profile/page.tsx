@@ -755,10 +755,10 @@ const ProfilePage = () => {
               {selectedCertificate.certificate_path ? (
                 <div className="flex flex-col items-center">
                   {(() => {
-                    // Prepend API_BASE if path is relative
+                    // Prepend API_BASE if path is relative and safely encode it
                     const certUrl = selectedCertificate.certificate_path.startsWith('http') 
                       ? selectedCertificate.certificate_path 
-                      : `${API_BASE}${selectedCertificate.certificate_path}`;
+                      : `${API_BASE}${encodeURI(selectedCertificate.certificate_path)}`;
                     
                     return selectedCertificate.certificate_path.toLowerCase().endsWith('.pdf') ? (
                       <iframe
@@ -784,7 +784,7 @@ const ProfilePage = () => {
                         try {
                           const certUrl = selectedCertificate.certificate_path!.startsWith('http') 
                             ? selectedCertificate.certificate_path! 
-                            : `${API_BASE}${selectedCertificate.certificate_path}`;
+                            : `${API_BASE}${encodeURI(selectedCertificate.certificate_path!)}?download=true`;
                           
                           // Fetch the file as blob
                           const response = await fetch(certUrl);
