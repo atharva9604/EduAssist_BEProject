@@ -108,6 +108,8 @@
 import os
 import json
 import random
+import time
+import requests
 from typing import Dict, List, Optional
 from dotenv import load_dotenv
 
@@ -117,9 +119,40 @@ load_dotenv()
 from google import genai
 
 API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+
 if not API_KEY:
     raise RuntimeError("GEMINI_API_KEY not found in environment variables. Please check your .env file.")
 genai_client = genai.Client(api_key=API_KEY)
+
+
+def _call_groq_qgen(prompt: str) -> str:
+    """Fallback: call Groq LLaMA when Gemini is unavailable."""
+    if not GROQ_API_KEY:
+        raise RuntimeError("GROQ_API_KEY not set – cannot fall back to Groq.")
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": "llama-3.3-70b-versatile",
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are an expert academic question paper generator. "
+                    "Always respond with valid JSON only, no extra commentary."
+                ),
+            },
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0.6,
+        "max_tokens": 4096,
+    }
+    resp = requests.post(url, headers=headers, json=payload, timeout=90)
+    resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"]
 
 class QuestionGenerator:
     """Question Generator Agent that creates various types of questions"""
@@ -129,7 +162,70 @@ class QuestionGenerator:
         # gemini-pro-latest maps to gemini-2.5-pro which has quota limit 0 on free tier
         # gemini-2.5-flash is free tier compatible and works well
         self.model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-    
+
+    def _generate_with_fallback(self, prompt: str, max_retries: int = 2) -> str:
+        """Try Gemini first; on 503/429/quota errors fall back to Groq LLaMA."""
+        last_error = None
+
+        for attempt in range(max_retries):
+            try:
+                response = genai_client.models.generate_content(
+                    model=self.model,
+                    contents=prompt,
+                )
+                result_text = getattr(response, "text", "") or ""
+
+                if not result_text.strip():
+                    raise RuntimeError(
+                        f"Gemini returned an empty response. Model: {self.model}. "
+                        "This usually means the API key has no quota or the model is unavailable."
+                    )
+
+                print(
+                    f"[QuestionGenerator] Gemini response OK "
+                    f"(attempt {attempt + 1}, length: {len(result_text)})"
+                )
+                return result_text
+
+            except Exception as e:
+                err_str = str(e)
+                print(f"[QuestionGenerator] Gemini error (attempt {attempt + 1}): {err_str}")
+                last_error = e
+
+                is_transient = any(
+                    code in err_str
+                    for code in ("503", "429", "UNAVAILABLE", "RESOURCE_EXHAUSTED", "quota")
+                )
+
+                if is_transient:
+                    if GROQ_API_KEY:
+                        print(
+                            "[QuestionGenerator] ⚡ Gemini unavailable – switching to Groq LLaMA fallback..."
+                        )
+                        try:
+                            text = _call_groq_qgen(prompt)
+                            print(
+                                f"[QuestionGenerator] Groq fallback succeeded "
+                                f"(length: {len(text)})"
+                            )
+                            return text
+                        except Exception as groq_err:
+                            print(f"[QuestionGenerator] Groq fallback also failed: {groq_err}")
+                            raise RuntimeError(
+                                f"Both Gemini and Groq failed. "
+                                f"Gemini: {err_str} | Groq: {groq_err}"
+                            )
+                    else:
+                        if attempt < max_retries - 1:
+                            wait = 3 * (2 ** attempt)
+                            print(f"[QuestionGenerator] Retrying Gemini in {wait}s...")
+                            time.sleep(wait)
+                else:
+                    raise
+
+        raise last_error or RuntimeError("QuestionGenerator: all attempts failed")
+
+
     def _calculate_difficulty_distribution(
         self, 
         total_questions: int, 
@@ -237,18 +333,7 @@ class QuestionGenerator:
             Return ONLY valid JSON. Ensure the difficulty distribution matches the requirements.
             """
             
-            response = genai_client.models.generate_content(
-                model=self.model,
-                contents=prompt,
-            )
-            result_text = getattr(response, "text", "") or ""
-            
-            print(f"[QuestionGenerator] Raw Gemini response length: {len(result_text)}")
-            if not result_text.strip():
-                raise RuntimeError(
-                    f"Gemini returned an empty response. Model: {self.model}. "
-                    f"This usually means the API key has no quota or the model is unavailable."
-                )
+            result_text = self._generate_with_fallback(prompt)
             
             # Try to extract JSON from the response
             try:

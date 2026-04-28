@@ -69,6 +69,15 @@ export const generateQuestionPaper = async (
         const errData = await response.json();
         if (errData?.detail) errorDetail = errData.detail;
       } catch {}
+
+      // Provide a user-friendly message for AI overload (503)
+      if (response.status === 503) {
+        throw new Error(
+          '⚠️ The AI model is currently overloaded. The system already tried switching to a backup model. ' +
+          'Please wait a moment and try again.\n\nDetails: ' + errorDetail
+        );
+      }
+
       throw new Error(errorDetail);
     }
 

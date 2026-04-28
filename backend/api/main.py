@@ -113,6 +113,19 @@ content_generator = PPTContentGenerator()
 lab_manual_generator = LabManualGenerator()
 lab_manual_creator = LabManualCreator()
 image_fetcher = ImageFetcher()
+
+# ---------- AI error helper ----------
+def _raise_ai_http_error(e: Exception):
+    """Convert AI overload/quota errors to HTTP 503; everything else stays 500."""
+    err_str = str(e)
+    is_overload = any(
+        code in err_str
+        for code in ("503", "429", "UNAVAILABLE", "RESOURCE_EXHAUSTED", "quota",
+                     "high demand", "Both Gemini and Groq failed")
+    )
+    status = 503 if is_overload else 500
+    raise HTTPException(status_code=status, detail=err_str)
+# -------------------------------------
 # Initialize PDF and document processing if available
 if PDF_UTILS_AVAILABLE:
     try:
@@ -1190,7 +1203,7 @@ async def generate_questions(request: QuestionGenerationRequest):
             "questions": questions
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        _raise_ai_http_error(e)
 
 def _enforce_marks_scheme(questions_data: dict, marks_mcq: int, marks_short: int, marks_long: int) -> dict:
     """Force-overwrite each question's marks to match the user's requested marking scheme.
@@ -1252,10 +1265,11 @@ async def generate_question_paper(request: QuestionPaperRequest):
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        _raise_ai_http_error(e)
 
 @app.post("/api/upload-document")
 async def upload_document(file: UploadFile = File(...)):
+
     """Upload PDF or PPT file and extract text content"""
     if not PDF_UTILS_AVAILABLE or not document_processor:
         raise HTTPException(
@@ -1425,8 +1439,11 @@ async def generate_question_paper_pdf(request: QuestionPaperRequest):
                 "pdf_path": pdf_path,
                 "pdf_filename": os.path.basename(pdf_path)
             }
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        _raise_ai_http_error(e)
+
 
 @app.get("/api/download-question-paper/{filename}")
 async def download_question_paper(filename: str):
