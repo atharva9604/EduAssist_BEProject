@@ -758,7 +758,7 @@ const ProfilePage = () => {
                     // Prepend API_BASE if path is relative and safely encode it
                     const certUrl = selectedCertificate.certificate_path.startsWith('http') 
                       ? selectedCertificate.certificate_path 
-                      : `${API_BASE}${encodeURI(selectedCertificate.certificate_path)}`;
+                      : `${API_BASE}${selectedCertificate.certificate_path.split('/').map(s => encodeURIComponent(s)).join('/')}`;
                     
                     return selectedCertificate.certificate_path.toLowerCase().endsWith('.pdf') ? (
                       <iframe
@@ -784,7 +784,7 @@ const ProfilePage = () => {
                         try {
                           const certUrl = selectedCertificate.certificate_path!.startsWith('http') 
                             ? selectedCertificate.certificate_path! 
-                            : `${API_BASE}${encodeURI(selectedCertificate.certificate_path!)}?download=true`;
+                            : `${API_BASE}${selectedCertificate.certificate_path!.split('/').map(s => encodeURIComponent(s)).join('/')}?download=true`;
                           
                           // Fetch the file as blob
                           const response = await fetch(certUrl);
@@ -796,7 +796,8 @@ const ProfilePage = () => {
                           
                           // Extract filename from path or use certificate name
                           const urlParts = certUrl.split('/');
-                          const filenameFromUrl = urlParts[urlParts.length - 1];
+                          const rawFilename = urlParts[urlParts.length - 1].split('?')[0];
+                          const filenameFromUrl = decodeURIComponent(rawFilename);
                           
                           // Get original filename (remove timestamp prefix if present)
                           // Format: {user_id}_{timestamp}_{original_filename}
