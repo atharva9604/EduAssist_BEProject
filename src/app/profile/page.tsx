@@ -789,7 +789,7 @@ const ProfilePage = () => {
                           // Fetch the file as blob
                           const response = await fetch(certUrl);
                           if (!response.ok) {
-                            throw new Error('Failed to download certificate');
+                            throw new Error(`Server returned ${response.status} ${response.statusText}`);
                           }
                           
                           const blob = await response.blob();

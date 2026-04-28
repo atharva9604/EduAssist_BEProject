@@ -1952,7 +1952,6 @@ async def get_certificate(filename: str, download: bool = False):
     return FileResponse(
         path=str(file_path),
         media_type=media_type,
-        filename=original_filename,
         headers={
             "Content-Disposition": f'{disposition}; filename="{original_filename}"',
             "Cache-Control": "no-cache",
