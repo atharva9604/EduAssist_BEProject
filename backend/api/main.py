@@ -2184,11 +2184,26 @@ USER MESSAGE:
 {message}
 """.strip()
 
-    resp = genai_client.models.generate_content(
-        model=_attendance_router_model_name,
-        contents=prompt,
-    )
-    raw = getattr(resp, "text", "") or ""
+    try:
+        resp = genai_client.models.generate_content(
+            model=_attendance_router_model_name,
+            contents=prompt,
+        )
+        raw = getattr(resp, "text", "") or ""
+    except Exception as e:
+        err_str = str(e).lower()
+        if "429" in err_str or "quota" in err_str or "exhausted" in err_str or "503" in err_str:
+            print(f"⚡ Attendance Router: Gemini overloaded – switching to Groq LLaMA fallback...")
+            try:
+                from utils.model_manager import ModelManager
+                model_manager = ModelManager()
+                raw = model_manager.generate_content(prompt, model_type="groq_llama")
+            except Exception as groq_e:
+                print(f"⚡ Attendance Router Groq Fallback Error: {groq_e}")
+                return {"tool": "ASK", "ask": {"message": f"AI models unavailable. Please try again later."}}
+        else:
+            print(f"⚡ Attendance Router Error: {e}")
+            return {"tool": "ASK", "ask": {"message": f"API Error: {str(e)}" }}
     json_text = _extract_json_text(raw)
     try:
         data = json.loads(json_text)
